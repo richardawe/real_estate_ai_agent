@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Real Estate AI Agent</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+  <style>
+    .auth-container {
+      max-width: 420px;
+      margin: 3rem auto;
+      padding: 0 1rem;
+    }
+
+    .auth-tabs {
+      display: flex;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 1.5rem;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .auth-tab.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    .auth-panel {
+      display: none;
+    }
+
+    .auth-panel.active {
+      display: block;
+    }
+
+    .auth-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      font-size: 0.9rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px var(--brand-light);
+    }
+
+    .form-group input.error {
+      border-color: #e74c3c;
+    }
+
+    .field-error {
+      color: #e74c3c;
+      font-size: 0.82rem;
+      margin-top: 0.3rem;
+      display: none;
+    }
+
+    .field-error.visible {
+      display: block;
+    }
+
+    .form-error {
+      background: #fdecea;
+      color: #c0392b;
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .form-error.visible {
+      display: block;
+    }
+
+    .form-success {
+      background: #eafaf1;
+      color: #1e8449;
+      border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+      font-size: 0.88rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .form-success.visible {
+      display: block;
+    }
+
+    .btn--primary {
+      width: 100%;
+      padding: 0.7rem 1.25rem;
+      background: var(--brand);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+
+    .btn--primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="../" style="color:white;text-decoration:none">Real Estate AI Agent</a></h1>
+    <p class="tagline">Sign in to manage your workflows</p>
+  </header>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="signin" type="button">Sign in</button>
+        <button class="auth-tab" data-tab="signup" type="button">Create account</button>
+      </div>
+
+      <!-- Sign-in panel -->
+      <div id="panel-signin" class="auth-panel active">
+        <div id="signin-error" class="form-error" role="alert"></div>
+        <form id="form-signin" novalidate>
+          <div class="form-group">
+            <label for="signin-email">Email</label>
+            <input type="email" id="signin-email" name="email" autocomplete="email" required />
+            <div class="field-error" id="signin-email-error">Please enter a valid email address.</div>
+          </div>
+          <div class="form-group">
+            <label for="signin-password">Password</label>
+            <input type="password" id="signin-password" name="password" autocomplete="current-password" required />
+            <div class="field-error" id="signin-password-error">Please enter your password.</div>
+          </div>
+          <button type="submit" class="btn--primary" id="signin-btn">Sign in</button>
+        </form>
+      </div>
+
+      <!-- Sign-up panel -->
+      <div id="panel-signup" class="auth-panel">
+        <div id="signup-error" class="form-error" role="alert"></div>
+        <div id="signup-success" class="form-success" role="status">
+          Check your email to confirm your account before signing in.
+        </div>
+        <form id="form-signup" novalidate>
+          <div class="form-group">
+            <label for="signup-email">Email</label>
+            <input type="email" id="signup-email" name="email" autocomplete="email" required />
+            <div class="field-error" id="signup-email-error">Please enter a valid email address.</div>
+          </div>
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input type="password" id="signup-password" name="password" autocomplete="new-password" required minlength="6" />
+            <div class="field-error" id="signup-password-error">Password must be at least 6 characters.</div>
+          </div>
+          <div class="form-group">
+            <label for="signup-confirm">Confirm password</label>
+            <input type="password" id="signup-confirm" name="confirm" autocomplete="new-password" required />
+            <div class="field-error" id="signup-confirm-error">Passwords do not match.</div>
+          </div>
+          <button type="submit" class="btn--primary" id="signup-btn">Create account</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="login.js"></script>
+</body>
+</html>
