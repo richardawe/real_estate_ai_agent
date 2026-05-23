@@ -11,6 +11,7 @@
  *   const issue = await gh.getIssue(123);
  */
 
+// Client ID is set in site/config.js — never hardcode it here.
 const TOKEN_KEY = 'rwa_gh_token';
 const REPO = 'richardawe/real_estate_ai_agent';
 

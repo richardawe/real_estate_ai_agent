@@ -1,0 +1,75 @@
+name: Create Labels
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create all workflow labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              // State labels
+              { name: "state:intake",           color: "bfd4f2", description: "Awaiting intake completion" },
+              { name: "state:discover",          color: "bfd4f2", description: "Agent scraping and ranking" },
+              { name: "state:shortlist_review",  color: "fef2c0", description: "HITL — waiting for user shortlist review" },
+              { name: "state:viewings",          color: "fef2c0", description: "Viewings scheduled" },
+              { name: "state:offer_draft",       color: "f9d0c4", description: "Offer drafted, awaiting /approve" },
+              { name: "state:offer_submitted",   color: "f9d0c4", description: "Offer submitted, awaiting response" },
+              { name: "state:due_diligence",     color: "f9d0c4", description: "Coordinating inspector / appraiser" },
+              { name: "state:lease_review",      color: "f9d0c4", description: "Lease drafted, awaiting /approve" },
+              { name: "state:closing",           color: "0075ca", description: "Final sign-off" },
+              { name: "state:completed",         color: "0e8a16", description: "Workflow complete" },
+              // Flow labels
+              { name: "flow:buy",                color: "1d76db", description: "Buying workflow" },
+              { name: "flow:rent",               color: "5319e7", description: "Renting workflow" },
+              // HITL labels
+              { name: "hitl:review_shortlist",       color: "e4e669", description: "HITL: review shortlisted properties" },
+              { name: "hitl:approve_viewing",        color: "e4e669", description: "HITL: approve viewing requests" },
+              { name: "hitl:approve_offer",          color: "e4e669", description: "HITL: approve offer draft" },
+              { name: "hitl:submit_offer_to_agent",  color: "e4e669", description: "HITL: user to send offer email" },
+              { name: "hitl:counter_decision",       color: "e4e669", description: "HITL: respond to counter-offer" },
+              { name: "hitl:credit_pull",            color: "e4e669", description: "HITL: fetch own credit report" },
+              { name: "hitl:id_verification",        color: "e4e669", description: "HITL: identity verification" },
+              { name: "hitl:mortgage_submission",    color: "e4e669", description: "HITL: submit mortgage application" },
+              { name: "hitl:inspection_review",      color: "e4e669", description: "HITL: review inspection report" },
+              { name: "hitl:final_closing",          color: "e4e669", description: "HITL: final closing documents" },
+              { name: "hitl:landlord_decision",      color: "e4e669", description: "HITL: landlord application response" },
+              { name: "hitl:lease_review",           color: "e4e669", description: "HITL: review lease draft" },
+              { name: "hitl:payment_confirmation",   color: "e4e669", description: "HITL: confirm payment" },
+              { name: "hitl:move_in_inspection",     color: "e4e669", description: "HITL: move-in photo inspection" },
+              // Risk labels
+              { name: "risk:legal_review",       color: "d93f0b", description: "Flagged for human legal review" },
+            ];
+
+            for (const label of labels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description,
+                });
+                console.log(`Created: ${label.name}`);
+              } catch (e) {
+                if (e.status === 422) {
+                  // Label already exists — update it
+                  await github.rest.issues.updateLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: label.name,
+                    color: label.color,
+                    description: label.description,
+                  });
+                  console.log(`Updated: ${label.name}`);
+                } else {
+                  throw e;
+                }
+              }
+            }
