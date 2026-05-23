@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Start workflow — Real Estate AI Agent</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+  <link rel="stylesheet" href="intake.css" />
+</head>
+<body>
+  <header>
+    <h1>Real Estate AI Agent</h1>
+    <p class="tagline" id="workflow-type-label">Buy workflow</p>
+  </header>
+
+  <main id="intake-app">
+    <div id="auth-gate" class="auth-gate">
+      <h2>Sign in with GitHub</h2>
+      <p>
+        Your workflow is stored as a GitHub Issue in your repository.
+        Sign in to create and manage your workflow. No additional account needed.
+      </p>
+      <button id="signin-btn" class="btn btn--approve">Sign in with GitHub</button>
+      <p class="muted">
+        Scope requested: <code>public_repo</code> (read/write issues only).
+        Your PII is encrypted before being stored.
+        <a href="../../PRIVACY.md">Privacy notice</a>
+      </p>
+    </div>
+
+    <form id="intake-form" class="intake-form hidden" novalidate>
+      <div class="steps" id="steps">
+        <!-- Steps rendered by intake.js -->
+      </div>
+
+      <div class="form-nav">
+        <button type="button" id="prev-btn" class="btn btn--counter hidden">← Back</button>
+        <button type="button" id="next-btn" class="btn btn--approve">Next →</button>
+        <button type="submit" id="submit-btn" class="btn btn--approve hidden">Submit →</button>
+      </div>
+    </form>
+
+    <div id="success-message" class="success-message hidden">
+      <h2>Workflow started!</h2>
+      <p>
+        Your requirements are being processed. The agent will post a shortlist
+        within 15 minutes.
+      </p>
+      <a id="workflow-link" class="btn btn--approve" href="#">View your workflow →</a>
+    </div>
+  </main>
+
+  <script src="../js/github-client.js" type="module"></script>
+  <script src="intake.js" type="module"></script>
+</body>
+</html>

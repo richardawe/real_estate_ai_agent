@@ -46,6 +46,9 @@ def test_current_state_raises_on_multiple():
         (State.OFFER_DRAFT, State.OFFER_SUBMITTED),
         (State.OFFER_SUBMITTED, State.DUE_DILIGENCE),
         (State.DUE_DILIGENCE, State.CLOSING),
+        # Rejection backward transitions
+        (State.OFFER_DRAFT, State.SHORTLIST_REVIEW),
+        (State.VIEWINGS, State.SHORTLIST_REVIEW),
         # Rent path
         (State.SHORTLIST_REVIEW, State.LEASE_REVIEW),
         (State.LEASE_REVIEW, State.CLOSING),

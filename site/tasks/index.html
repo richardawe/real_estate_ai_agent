@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tasks — Real Estate AI Agent</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <header>
+    <h1><a href="../" style="color:white;text-decoration:none">Real Estate AI Agent</a></h1>
+    <p class="tagline">Pending tasks</p>
+  </header>
+
+  <main style="max-width:860px;margin:2rem auto;padding:0 1rem">
+    <div id="tasks-container">
+      <p>Loading tasks…</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { gh } from '../js/github-client.js';
+    import { renderHitlTask } from '../js/task-renderer.js';
+
+    async function loadTasks() {
+      const container = document.getElementById('tasks-container');
+      try {
+        const issues = await gh.listWorkflows();
+        const withHitl = issues.filter(i =>
+          i.labels.some(l => l.name.startsWith('hitl:'))
+        );
+        if (!withHitl.length) {
+          container.innerHTML = '<p>No pending tasks.</p>';
+          return;
+        }
+        container.innerHTML = '';
+        for (const issue of withHitl) {
+          const kinds = issue.labels
+            .filter(l => l.name.startsWith('hitl:'))
+            .map(l => l.name.replace('hitl:', ''));
+          const heading = document.createElement('h2');
+          heading.style.marginBottom = '0.5rem';
+          heading.innerHTML = `<a href="../workflow/?id=${issue.number}">#${issue.number} ${issue.title}</a>`;
+          container.appendChild(heading);
+          for (const kind of kinds) {
+            const el = renderHitlTask(kind, {}, issue.number);
+            if (el) container.appendChild(el);
+          }
+        }
+      } catch (err) {
+        container.innerHTML = `<p style="color:red">Error: ${err.message}</p>`;
+      }
+    }
+
+    loadTasks();
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+name: Intake
+
+on:
+  repository_dispatch:
+    types: [intake_submitted]
+  issues:
+    types: [opened]
+
+concurrency:
+  group: intake-${{ github.event.issue.number || github.event.client_payload.workflow_id }}
+  cancel-in-progress: false
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    # Only process issues with the intake template label, or repository_dispatch events.
+    if: |
+      github.event_name == 'repository_dispatch' ||
+      contains(github.event.issue.labels.*.name, 'state:intake')
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run intake step
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.client_payload.issue_number }}
+          INTAKE_TEXT: ${{ toJson(github.event.client_payload.intake_text || '') }}
+          WORKFLOW_TYPE: ${{ github.event.client_payload.workflow_type || 'buy' }}
+        run: python -m workflows_lib.intake_action

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your workflow — Real Estate AI Agent</title>
+  <link rel="stylesheet" href="../styles/main.css" />
+</head>
+<body>
+  <header>
+    <h1><a href="../" style="color:white;text-decoration:none">Real Estate AI Agent</a></h1>
+  </header>
+
+  <main style="max-width:860px;margin:2rem auto;padding:0 1rem">
+    <div id="workflow-container">
+      <p>Loading workflow…</p>
+    </div>
+  </main>
+
+  <script src="../js/github-client.js" type="module"></script>
+  <script type="module">
+    import { initWorkflowView } from '../js/workflow-view.js';
+    initWorkflowView();
+  </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real Estate AI Agent</title>
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <header>
+    <h1>Real Estate AI Agent</h1>
+    <p class="tagline">Your free, private, human-confirmed property workflow</p>
+  </header>
+
+  <main class="hero">
+    <p>
+      Get AI-powered help finding, evaluating, and negotiating your next property —
+      without handing your data to an estate agent.
+      Every decision needs your explicit approval before anything happens.
+    </p>
+
+    <div class="choice-cards">
+      <a class="card card--buy" href="intake/?type=buy">
+        <h2>Buy</h2>
+        <p>Find a property, make an offer, handle due diligence — step by step.</p>
+        <span class="cta">Start buying →</span>
+      </a>
+      <a class="card card--rent" href="intake/?type=rent">
+        <h2>Rent</h2>
+        <p>Search listings, submit applications, review your lease before signing.</p>
+        <span class="cta">Start renting →</span>
+      </a>
+    </div>
+
+    <details class="how-it-works">
+      <summary>How it works</summary>
+      <ol>
+        <li>Fill in your requirements. Your details are encrypted before being stored.</li>
+        <li>The agent searches permitted listing sources and ranks the results.</li>
+        <li>You review the shortlist and pick properties to view.</li>
+        <li>The agent drafts offers and correspondence — but never sends anything without your approval.</li>
+        <li>Every external action requires an explicit <code>/approve</code> from you.</li>
+      </ol>
+      <p>
+        No commission. No fees. No LLM makes decisions on your behalf.
+        <a href="../PRIVACY.md">Privacy notice</a> ·
+        <a href="../TERMS.md">Terms</a>
+      </p>
+    </details>
+  </main>
+
+  <footer>
+    <a href="https://github.com/richardawe/real_estate_ai_agent">Source code</a>
+  </footer>
+
+  <script src="js/github-client.js" type="module"></script>
+</body>
+</html>

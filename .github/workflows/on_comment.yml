@@ -1,0 +1,43 @@
+name: On Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: workflow-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  on_comment:
+    runs-on: ubuntu-latest
+    # Only process comments on open issues that carry a workflow state label.
+    if: |
+      github.event.issue.state == 'open' &&
+      (
+        contains(github.event.issue.labels.*.name, 'flow:buy') ||
+        contains(github.event.issue.labels.*.name, 'flow:rent')
+      )
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Dispatch slash-command
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PII_ENCRYPTION_KEY: ${{ secrets.PII_ENCRYPTION_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+        run: python -m workflows_lib.on_comment_action

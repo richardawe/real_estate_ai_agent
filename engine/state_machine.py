@@ -38,6 +38,9 @@ _ALLOWED_TRANSITIONS: frozenset[tuple[State, State]] = frozenset(
         (State.OFFER_DRAFT, State.OFFER_SUBMITTED),
         (State.OFFER_SUBMITTED, State.DUE_DILIGENCE),
         (State.DUE_DILIGENCE, State.CLOSING),
+        # Rejection backward transitions (user rejects a draft)
+        (State.OFFER_DRAFT, State.SHORTLIST_REVIEW),
+        (State.VIEWINGS, State.SHORTLIST_REVIEW),
         # Rent path diverges here
         (State.SHORTLIST_REVIEW, State.LEASE_REVIEW),
         (State.LEASE_REVIEW, State.CLOSING),
