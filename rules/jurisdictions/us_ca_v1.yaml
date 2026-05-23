@@ -1,0 +1,20 @@
+schema_version: 1
+jurisdiction: us_ca
+overlays:
+  buying:
+    transfer_tax_rate_per_1000: 1.10   # County transfer tax per $1,000 of sale price
+    prop_13_base_rate: 0.01            # Property tax base rate
+    legal_steps:
+      - open_escrow
+      - title_search
+      - inspection
+      - loan_contingency_removal
+      - close_escrow
+    typical_completion_weeks: 4
+
+  renting:
+    deposit_cap_months: 2              # AB 12 (2024): cap at 2× monthly rent
+    notice_period_tenant_days: 30
+    notice_period_landlord_days: 60    # For tenancies > 1 year
+    just_cause_eviction_required: true # For covered jurisdictions
+    local_rent_control_check_required: true

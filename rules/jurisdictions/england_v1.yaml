@@ -1,0 +1,35 @@
+schema_version: 1
+jurisdiction: england
+overlays:
+  buying:
+    stamp_duty_thresholds:
+      # Rates for residential property purchases (2026, standard rates).
+      - up_to: 250000
+        rate: 0.00
+      - up_to: 925000
+        rate: 0.05
+      - up_to: 1500000
+        rate: 0.10
+      - up_to: null       # above £1.5m
+        rate: 0.12
+    # First-time buyer relief: 0% on first £425k, 5% up to £625k.
+    first_time_buyer_relief:
+      zero_rate_threshold: 425000
+      relief_cap: 625000
+    legal_steps:
+      - instruct_solicitor
+      - property_searches
+      - survey
+      - exchange_contracts
+      - completion
+    typical_completion_weeks: 12
+
+  renting:
+    deposit_cap_weeks: 5       # Tenant Fees Act 2019
+    notice_period_tenant_weeks: 4
+    notice_period_landlord_weeks: 8
+    deposit_protection_required: true
+    deposit_schemes:
+      - Deposit Protection Service
+      - MyDeposits
+      - Tenancy Deposit Scheme

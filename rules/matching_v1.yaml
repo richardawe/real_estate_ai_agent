@@ -1,0 +1,29 @@
+schema_version: 1
+
+# Number of properties to include in a shortlist posted to the user.
+shortlist_size: 10
+
+# Minimum score (0.0–1.0) for a property to appear in the shortlist at all.
+min_score_threshold: 0.40
+
+# Location fit scoring: radius bands in km and their score values.
+location_bands:
+  - radius_km: 0
+    score: 1.00     # exact match / within target location
+  - radius_km: 5
+    score: 0.80
+  - radius_km: 10
+    score: 0.60
+  - radius_km: 20
+    score: 0.30
+  - radius_km: 999
+    score: 0.00
+
+# Price fit scoring: fractional deviation from midpoint of budget range.
+# score = max(0, 1 - deviation_fraction / price_fit_decay)
+price_fit_decay: 0.20
+
+# Size fit: score = min(1, actual_beds / required_beds) capped at 1.
+# Extra bedrooms beyond required score a small bonus.
+size_extra_bed_bonus: 0.05
+size_extra_bed_bonus_cap: 0.20

@@ -1,0 +1,41 @@
+schema_version: 1
+
+affordability:
+  max_rent_pct_of_gross_income: 0.30
+
+hard_filters:
+  - field: rent_monthly
+    op: between
+    refs: [requirements.rent_min, requirements.rent_max]
+    optional: true
+  - field: beds
+    op: gte
+    ref: requirements.bedrooms_min
+
+required_application_docs:
+  - photo_id
+  - last_3_months_payslips
+  - last_3_months_bank_statements
+  - landlord_reference
+  - employer_reference
+
+lease_must_haves:
+  - deposit_protection_scheme
+  - notice_period
+  - repairs_responsibility
+  - pet_policy
+
+fraud_signals:
+  - signal: listing_price_below_market_pct
+    threshold: 30       # If listed price is >30% below local median, flag it.
+  - signal: no_in_person_viewing_offered
+    value: true
+  - signal: upfront_payment_demanded_before_lease
+    value: true
+
+scoring_weights:
+  price_fit: 0.35
+  location_fit: 0.25
+  size_fit: 0.20
+  must_haves_hit: 0.15
+  nice_to_haves_hit: 0.05

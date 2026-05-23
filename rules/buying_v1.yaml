@@ -1,0 +1,49 @@
+schema_version: 1
+
+affordability:
+  max_monthly_payment_pct_of_income: 0.28
+  default_interest_rate_pct: 6.5
+  default_term_years: 25
+  # Stress-test rate added to default_interest_rate_pct to check headroom.
+  stress_test_addition_pct: 3.0
+
+# Hard filters applied before scoring. All must pass or the property is excluded.
+hard_filters:
+  - field: price
+    op: between
+    refs: [requirements.budget_min, requirements.budget_max]
+  - field: beds
+    op: gte
+    ref: requirements.bedrooms_min
+  - field: property_type
+    op: in
+    ref: requirements.property_types
+    # op: in means property_type must be in the list; omit field means skip check
+    optional: true
+
+must_have_match_required: true
+
+scoring_weights:
+  # Weights must sum to 1.0.
+  price_fit: 0.30
+  location_fit: 0.25
+  size_fit: 0.20
+  must_haves_hit: 0.15
+  nice_to_haves_hit: 0.10
+
+contingencies_required:
+  - inspection
+  - financing
+  - appraisal
+
+due_diligence_checklist:
+  - inspection_report
+  - title_search
+  - appraisal
+  - hoa_docs_if_applicable
+
+# Offer validity window in calendar days.
+offer_validity_days: 3
+
+# Maximum earnest money as a fraction of offer price.
+max_earnest_money_fraction: 0.02
