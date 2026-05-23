@@ -1,0 +1,52 @@
+source_id: craigslist
+display_name: Craigslist
+type: listings_search
+runtime: http
+robots_check: true
+rate_limit_seconds: 2
+auth: none
+jurisdiction: us_ca
+
+search:
+  base_url: "https://sfbay.craigslist.org"
+  rent_url_template: "https://{city_subdomain}.craigslist.org/search/apa?min_price={rent_min}&max_price={rent_max}&min_bedrooms={bedrooms_min}"
+  pagination:
+    offset_param: s
+    offset_step: 120
+    max_pages: 3
+
+extract:
+  card_selector: "li.result-row"
+  fields:
+    title:
+      selector: ".result-title"
+      attr: text
+    price:
+      selector: ".result-price"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".result-hood"
+      attr: text
+      optional: true
+    beds:
+      # Craigslist shows beds in the title; parse from title if no dedicated field.
+      selector: ".housing"
+      attr: text
+      parse: int_before_br
+      optional: true
+    url:
+      selector: "a.result-title"
+      attr: href
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    Craigslist search was blocked (HTTP {status_code}). I've paused scraping
+    from this source.
+
+notes: |
+  HTTP runtime (no JS needed for Craigslist). city_subdomain is resolved from
+  the user's location at runtime (e.g. sfbay, losangeles, sandiego).
+  Buy searches not supported — rent only.

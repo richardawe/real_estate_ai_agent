@@ -1,0 +1,31 @@
+form_id: england_ast
+display_name: England Assured Shorthold Tenancy
+jurisdiction: england
+template_source: "https://www.gov.uk/government/publications/model-agreement-for-a-shorthold-assured-tenancy"
+template_path: templates/legal/england_ast_v1.md
+
+required_fields:
+  - landlord_full_name
+  - tenant_full_name
+  - property_address
+  - rent_monthly
+  - deposit_amount
+  - tenancy_start
+  - tenancy_term_months
+  - deposit_scheme_name
+
+validations:
+  - rule: deposit_max_weeks
+    description: "Deposit must not exceed 5 weeks' rent (Tenant Fees Act 2019)"
+    field: deposit_amount
+    op: lte
+    computed_as: "rent_monthly * 12 / 52 * 5"
+
+human_review_required: true
+llm_may_draft_clauses: false
+
+notes: |
+  The template text comes from the gov.uk model tenancy agreement. The agent
+  fills in the named fields only. It must never generate or modify substantive
+  legal clauses. human_review_required = true means the lease must always pass
+  through hitl:lease_review before any e-sign step.

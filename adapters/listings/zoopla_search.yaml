@@ -1,0 +1,55 @@
+source_id: zoopla
+display_name: Zoopla
+type: listings_search
+runtime: playwright
+robots_check: true
+# Seconds between page requests to respect the site's rate limits.
+rate_limit_seconds: 3
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.zoopla.co.uk"
+  buy_url_template: "https://www.zoopla.co.uk/for-sale/property/{location_slug}/?price_min={budget_min}&price_max={budget_max}&beds_min={bedrooms_min}"
+  rent_url_template: "https://www.zoopla.co.uk/to-rent/property/{location_slug}/?price_min={rent_min}&price_max={rent_max}&beds_min={bedrooms_min}"
+  pagination:
+    selector: "a[data-testid='next-page']"
+    max_pages: 5
+
+extract:
+  card_selector: "[data-testid='listing-card']"
+  fields:
+    title:
+      selector: "h2"
+      attr: text
+    price:
+      selector: "[data-testid='listing-price']"
+      attr: text
+      # Parser strips "£" and "," and converts to int; "pcm" suffix indicates rent.
+      parse: currency_int
+    address:
+      selector: "[data-testid='listing-address']"
+      attr: text
+    beds:
+      selector: "[data-testid='bedrooms']"
+      attr: text
+      parse: int_first
+    property_type:
+      selector: "[data-testid='property-type']"
+      attr: text
+      optional: true
+    url:
+      selector: "a.listing-results-address"
+      attr: href
+      prefix: "https://www.zoopla.co.uk"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    Zoopla search was blocked (HTTP {status_code}). I've paused scraping
+    from this source. Please check manually or try again later.
+
+notes: |
+  Respects robots.txt. Aborts on first 403 or 429 and surfaces a warning
+  comment on the workflow issue. Maximum 5 pages per search run.

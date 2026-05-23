@@ -1,0 +1,54 @@
+source_id: rightmove
+display_name: Rightmove
+type: listings_search
+runtime: playwright
+robots_check: true
+rate_limit_seconds: 4
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.rightmove.co.uk"
+  buy_url_template: "https://www.rightmove.co.uk/property-for-sale/find.html?locationIdentifier={location_slug}&minPrice={budget_min}&maxPrice={budget_max}&minBedrooms={bedrooms_min}"
+  rent_url_template: "https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier={location_slug}&minPrice={rent_min}&maxPrice={rent_max}&minBedrooms={bedrooms_min}"
+  pagination:
+    index_param: index
+    index_step: 24
+    max_pages: 5
+
+extract:
+  card_selector: ".propertyCard"
+  fields:
+    title:
+      selector: ".propertyCard-title"
+      attr: text
+    price:
+      selector: ".propertyCard-priceValue"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".propertyCard-address"
+      attr: text
+    beds:
+      selector: ".propertyCard-details--bed .text"
+      attr: text
+      parse: int_first
+    property_type:
+      selector: ".propertyCard-details--type .text"
+      attr: text
+      optional: true
+    url:
+      selector: ".propertyCard-link"
+      attr: href
+      prefix: "https://www.rightmove.co.uk"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    Rightmove search was blocked (HTTP {status_code}). I've paused scraping
+    from this source. Please check manually or try again later.
+
+notes: |
+  Respects robots.txt. Pagination uses an index parameter stepping by 24.
+  Aborts on first 403 or 429.

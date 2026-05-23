@@ -1,0 +1,26 @@
+vendor_id: home_assistant
+display_name: Home Assistant (generic smart lock)
+type: smart_lock
+runtime: http
+auth: long_lived_access_token
+
+api:
+  base_url_env: HOME_ASSISTANT_URL    # e.g. http://homeassistant.local:8123
+  token_env: HOME_ASSISTANT_TOKEN
+  lock_service_url: "{base_url}/api/services/lock/unlock"
+  entity_id_env: HA_LOCK_ENTITY_ID
+
+operations:
+  unlock:
+    method: POST
+    payload: '{"entity_id": "{entity_id}"}'
+    # HITL required before every unlock operation.
+    hitl_required: true
+    hitl_kind: approve_unlock
+  lock:
+    method: POST
+    payload: '{"entity_id": "{entity_id}", "service": "lock"}'
+
+notes: |
+  Used for move-in inspection access only. Every unlock call requires
+  hitl:approve_unlock. The agent never unlocks without explicit /approve.
