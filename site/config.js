@@ -5,7 +5,7 @@
  */
 export const CONFIG = {
   SUPABASE_URL: "YOUR_SUPABASE_PROJECT_URL",      // e.g. https://xyzxyz.supabase.co
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",   // safe to commit
+  YOOAUTH_APP_CLIENT_ID: "Iv23liHmwjQWe0zEJEbn",   // safe to commit
   GITHUB_REPO: "richardawe/real_estate_ai_agent",
   GITHUB_API: "https://api.github.com",
   PROXY_URL: "YOUR_SUPABASE_PROJECT_URL/functions/v1/github-proxy",
