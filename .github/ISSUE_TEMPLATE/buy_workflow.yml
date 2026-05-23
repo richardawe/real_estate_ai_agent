@@ -1,0 +1,45 @@
+name: "Buy Workflow"
+description: "Start a property buying workflow (opened automatically by the intake action — do not open manually)."
+title: "Buy: [workflow_id]"
+labels:
+  - "flow:buy"
+  - "state:intake"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > This issue is managed by the Real Estate AI Agent. Do not edit the YAML block manually.
+        > Use the commands below in a comment to interact with your workflow.
+        >
+        > | Command | Effect |
+        > |---------|--------|
+        > | `/approve` | Approve the pending task |
+        > | `/reject` | Reject the pending task |
+        > | `/counter <amount>` | Counter-offer at the given amount |
+        > | `/like <property_id>` | Add a property to your shortlist |
+        > | `/skip <property_id>` | Remove a property from your shortlist |
+        > | `/note <text>` | Add context for the agent |
+        > | `/abort` | Cancel workflow and purge PII |
+
+  - type: textarea
+    id: front_matter
+    attributes:
+      label: "Workflow front-matter (managed by agent)"
+      description: "Structured YAML managed by the agent. Do not edit."
+      value: |
+        ---
+        workflow_id: ""
+        type: buy
+        schema_version: 1
+        jurisdiction: ""
+        created_at: ""
+        encrypted_pii: ""
+        requirements: {}
+        shortlist: []
+        selected_property_id: null
+        current_transaction: null
+        documents: []
+        token_usage: 0
+        ---
+    validations:
+      required: true
