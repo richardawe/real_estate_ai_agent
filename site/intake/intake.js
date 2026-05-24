@@ -1,20 +1,22 @@
 /**
  * Intake form logic.
  *
- * Renders a multi-step form, handles GitHub device-flow auth,
+ * Renders a multi-step form, verifies GitHub auth,
  * and submits via repository_dispatch when complete.
  */
 
-import { GitHubClient } from '../js/github-client.js';
+import { gh } from '../js/github-client.js';
 import { CONFIG } from '../config.js';
+import { requireAuth } from '../js/auth.js';
+
+// Require authentication before showing the form — redirects to /login/ if not signed in.
+await requireAuth();
 
 const params = new URLSearchParams(location.search);
 const WORKFLOW_TYPE = params.get('type') === 'rent' ? 'rent' : 'buy';
 
 document.getElementById('workflow-type-label').textContent =
   WORKFLOW_TYPE === 'buy' ? 'Buy workflow' : 'Rent workflow';
-
-const gh = new GitHubClient({ repo: CONFIG.GITHUB_REPO, clientId: CONFIG.GITHUB_OAUTH_CLIENT_ID });
 
 // ---------------------------------------------------------------------------
 // Step definitions
@@ -207,38 +209,17 @@ nextBtn.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Auth gate
+// Show form — user is authenticated (requireAuth() would have redirected otherwise)
 // ---------------------------------------------------------------------------
 
 const authGate = document.getElementById('auth-gate');
 const intakeForm = document.getElementById('intake-form');
 const successMessage = document.getElementById('success-message');
-const signinBtn = document.getElementById('signin-btn');
 
-function showForm() {
-  authGate.classList.add('hidden');
-  intakeForm.classList.remove('hidden');
-  renderSteps();
-}
-
-if (gh.isAuthenticated) {
-  showForm();
-} else {
-  signinBtn.addEventListener('click', async () => {
-    signinBtn.disabled = true;
-    signinBtn.textContent = 'Starting…';
-    try {
-      const { userCode, verificationUri } = await gh.startDeviceFlow();
-      signinBtn.textContent = `Go to ${verificationUri} and enter code: ${userCode}`;
-      await gh.pollForToken();
-      showForm();
-    } catch (err) {
-      signinBtn.disabled = false;
-      signinBtn.textContent = 'Sign in with GitHub';
-      alert('Sign-in failed: ' + err.message);
-    }
-  });
-}
+// Hide the auth gate and show the form immediately since we are authenticated.
+authGate.classList.add('hidden');
+intakeForm.classList.remove('hidden');
+renderSteps();
 
 // ---------------------------------------------------------------------------
 // Submit
@@ -264,6 +245,7 @@ intakeForm.addEventListener('submit', async (e) => {
 
   try {
     await gh.submitIntake({ workflowType: WORKFLOW_TYPE, intakeText });
+
     intakeForm.classList.add('hidden');
     successMessage.classList.remove('hidden');
 
@@ -273,6 +255,13 @@ intakeForm.addEventListener('submit', async (e) => {
   } catch (err) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit →';
-    alert('Submission failed: ' + err.message);
+    const errorEl = document.getElementById('intake-error');
+    if (errorEl) {
+      errorEl.textContent = 'Submission failed: ' + err.message;
+      errorEl.classList.remove('hidden');
+    } else {
+      // Fallback: log to console (no alert)
+      console.error('Submission failed:', err.message);
+    }
   }
 });

@@ -1,162 +1,72 @@
 /**
- * Login / sign-up form handler.
- *
- * Handles tab switching, field validation, Supabase auth calls, and
- * post-auth redirect.  No alert() calls — all errors rendered inline.
+ * GitHub OAuth device flow handler.
+ * Starts the device flow, shows the one-time code, polls for the token,
+ * then redirects to the page that triggered the auth gate.
  */
 
-import { signIn, signUp, getSession } from '../js/auth.js';
+import { getSession } from '../js/auth.js';
+import { GitHubClient } from '../js/github-client.js';
+import { CONFIG } from '../config.js';
 
-// ---------------------------------------------------------------------------
-// Redirect immediately if already signed in
-// ---------------------------------------------------------------------------
-
-const existingSession = await getSession();
-if (existingSession) {
+// Already signed in — go straight to the return destination.
+if (getSession()) {
   location.href = sessionStorage.getItem('returnTo') || '/';
 }
 
-// ---------------------------------------------------------------------------
-// Tab switching
-// ---------------------------------------------------------------------------
+const gh = new GitHubClient({ repo: CONFIG.GITHUB_REPO, clientId: CONFIG.GITHUB_OAUTH_CLIENT_ID });
 
-const tabs = document.querySelectorAll('.auth-tab');
-const panels = document.querySelectorAll('.auth-panel');
+const btn          = document.getElementById('signin-btn');
+const codeBox      = document.getElementById('device-code-box');
+const userCodeEl   = document.getElementById('user-code');
+const verifyLink   = document.getElementById('verify-link');
+const waitingHint  = document.getElementById('waiting-hint');
+const errorEl      = document.getElementById('auth-error');
 
-tabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    const target = tab.dataset.tab;
-    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === target));
-    panels.forEach(p => p.classList.toggle('active', p.id === `panel-${target}`));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function showError(elementId, message) {
-  const el = document.getElementById(elementId);
-  if (!el) return;
-  el.textContent = message;
-  el.classList.add('visible');
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.classList.add('visible');
 }
 
-function hideError(elementId) {
-  const el = document.getElementById(elementId);
-  if (el) el.classList.remove('visible');
+function hideError() {
+  errorEl.classList.remove('visible');
 }
 
-function setFieldError(inputEl, errorId, visible) {
-  if (visible) {
-    inputEl.classList.add('error');
-    document.getElementById(errorId).classList.add('visible');
-  } else {
-    inputEl.classList.remove('error');
-    document.getElementById(errorId).classList.remove('visible');
+btn.addEventListener('click', async () => {
+  hideError();
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Starting…';
+
+  try {
+    const { userCode, verificationUri } = await gh.startDeviceFlow();
+
+    userCodeEl.textContent = userCode;
+    verifyLink.href = verificationUri;
+    verifyLink.textContent = verificationUri.replace('https://', '');
+    codeBox.style.display = 'block';
+
+    btn.innerHTML = '<span class="spinner"></span> Waiting for authorisation…';
+    waitingHint.textContent = 'Waiting for you to authorise…';
+
+    await gh.pollForToken();
+
+    // Token stored by pollForToken — redirect.
+    waitingHint.textContent = 'Authorised! Redirecting…';
+    location.href = sessionStorage.getItem('returnTo') || '/';
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg class="github-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+          0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+          -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+          .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+          -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0
+          1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
+          1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01
+          1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      Sign in with GitHub`;
+    codeBox.style.display = 'none';
+    showError('Sign-in failed: ' + (err.message || 'unknown error') + '. Please try again.');
   }
-}
-
-function setSubmitting(btn, isSubmitting) {
-  btn.disabled = isSubmitting;
-  btn.textContent = isSubmitting ? 'Please wait…' : btn.dataset.label;
-}
-
-// Preserve original button labels for reset
-document.getElementById('signin-btn').dataset.label = 'Sign in';
-document.getElementById('signup-btn').dataset.label = 'Create account';
-
-// ---------------------------------------------------------------------------
-// Sign-in form
-// ---------------------------------------------------------------------------
-
-const signinForm = document.getElementById('form-signin');
-
-signinForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  hideError('signin-error');
-
-  const emailEl = document.getElementById('signin-email');
-  const passwordEl = document.getElementById('signin-password');
-  const btn = document.getElementById('signin-btn');
-
-  // Client-side validation
-  let valid = true;
-  if (!emailEl.value.trim() || !emailEl.validity.valid) {
-    setFieldError(emailEl, 'signin-email-error', true);
-    valid = false;
-  } else {
-    setFieldError(emailEl, 'signin-email-error', false);
-  }
-  if (!passwordEl.value) {
-    setFieldError(passwordEl, 'signin-password-error', true);
-    valid = false;
-  } else {
-    setFieldError(passwordEl, 'signin-password-error', false);
-  }
-  if (!valid) return;
-
-  setSubmitting(btn, true);
-  const { error } = await signIn(emailEl.value.trim(), passwordEl.value);
-  if (error) {
-    setSubmitting(btn, false);
-    showError('signin-error', error.message || 'Sign-in failed. Check your email and password.');
-    return;
-  }
-
-  location.href = sessionStorage.getItem('returnTo') || '/';
-});
-
-// ---------------------------------------------------------------------------
-// Sign-up form
-// ---------------------------------------------------------------------------
-
-const signupForm = document.getElementById('form-signup');
-
-signupForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  hideError('signup-error');
-  hideError('signup-success');
-
-  const emailEl    = document.getElementById('signup-email');
-  const passwordEl = document.getElementById('signup-password');
-  const confirmEl  = document.getElementById('signup-confirm');
-  const btn        = document.getElementById('signup-btn');
-
-  // Client-side validation
-  let valid = true;
-  if (!emailEl.value.trim() || !emailEl.validity.valid) {
-    setFieldError(emailEl, 'signup-email-error', true);
-    valid = false;
-  } else {
-    setFieldError(emailEl, 'signup-email-error', false);
-  }
-  if (passwordEl.value.length < 6) {
-    setFieldError(passwordEl, 'signup-password-error', true);
-    valid = false;
-  } else {
-    setFieldError(passwordEl, 'signup-password-error', false);
-  }
-  if (confirmEl.value !== passwordEl.value) {
-    setFieldError(confirmEl, 'signup-confirm-error', true);
-    valid = false;
-  } else {
-    setFieldError(confirmEl, 'signup-confirm-error', false);
-  }
-  if (!valid) return;
-
-  setSubmitting(btn, true);
-  const { error } = await signUp(emailEl.value.trim(), passwordEl.value);
-  setSubmitting(btn, false);
-
-  if (error) {
-    showError('signup-error', error.message || 'Account creation failed. Please try again.');
-    return;
-  }
-
-  // Success — show confirmation message and hide the form fields so the
-  // user reads the instruction rather than trying to submit again.
-  signupForm.querySelectorAll('.form-group').forEach(g => (g.style.display = 'none'));
-  btn.style.display = 'none';
-  document.getElementById('signup-success').classList.add('visible');
 });
