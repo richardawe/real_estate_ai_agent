@@ -1,12 +1,8 @@
 /**
- * GitHub API client — Supabase auth edition.
+ * GitHub API client using the OAuth device flow.
  *
- * Read operations (getIssue, listIssueComments, listWorkflows) call the
- * public GitHub REST API directly — no token required for public repos.
- *
- * Write operations (postComment, submitIntake, patchIssue) are proxied
- * through the Supabase Edge Function which holds the GitHub PAT.
- * The caller's Supabase JWT is forwarded so the function can verify identity.
+ * The device flow lets the frontend authenticate without a backend server.
+ * The token is stored in localStorage (disclosed in the privacy notice).
  *
  * Usage:
  *   import { GitHubClient, gh } from './github-client.js';
@@ -14,132 +10,89 @@
  */
 
 import { CONFIG } from '../config.js';
-import { supabase, getSession } from './auth.js';
 
+const TOKEN_KEY = 'rwa_gh_token';
 const REPO = CONFIG.GITHUB_REPO;
-const GITHUB_API = CONFIG.GITHUB_API;
-const PROXY_URL = CONFIG.PROXY_URL;
 
 export class GitHubClient {
-  constructor({ repo = REPO, proxyUrl = PROXY_URL } = {}) {
+  constructor({ repo = REPO, clientId } = {}) {
     this.repo = repo;
-    this.proxyUrl = proxyUrl;
+    this.clientId = clientId || CONFIG.GITHUB_OAUTH_CLIENT_ID;
+    this.token = localStorage.getItem(TOKEN_KEY) || null;
   }
 
-  /**
-   * True when there is an active Supabase session.
-   */
   get isAuthenticated() {
-    // Synchronous approximation — use getSession() for authoritative check.
-    // We expose this getter for quick UI guards; async callers should await getSession().
-    return false; // overridden dynamically below via prototype
+    return Boolean(this.token);
   }
 
-  // ---------------------------------------------------------------------------
-  // Public (read) — direct GitHub API, no auth header
-  // ---------------------------------------------------------------------------
-
-  async getIssue(number) {
-    return this._publicFetch(`/repos/${this.repo}/issues/${number}`);
-  }
-
-  listIssueComments(number) {
-    return this._publicFetch(`/repos/${this.repo}/issues/${number}/comments?per_page=100`);
-  }
-
-  listWorkflows() {
-    return this._publicFetch(
-      `/repos/${this.repo}/issues?labels=flow%3Abuy%2Cflow%3Arent&state=open&per_page=50`
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Private (write) — proxied through Supabase Edge Function
-  // ---------------------------------------------------------------------------
-
-  async postComment(number, body) {
-    return this._proxyFetch({
-      path: `/repos/${this.repo}/issues/${number}/comments`,
+  /**
+   * Start the GitHub OAuth device flow. Returns { userCode, verificationUri }.
+   * The caller should display these to the user and then call pollForToken().
+   */
+  async startDeviceFlow() {
+    const resp = await fetch('https://github.com/login/device/code', {
       method: 'POST',
-      body: { body },
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: this.clientId, scope: 'public_repo' }),
     });
+    const data = await resp.json();
+    this._deviceCode = data.device_code;
+    this._pollInterval = data.interval || 5;
+    return {
+      userCode: data.user_code,
+      verificationUri: data.verification_uri,
+    };
   }
 
   /**
-   * Submit an intake form by triggering a repository_dispatch event.
+   * Poll GitHub until the user completes the device flow authorisation.
+   * Resolves when a token is obtained; rejects on expiry or error.
    */
-  async submitIntake({ workflowType, intakeText }) {
-    return this._proxyFetch({
-      path: `/repos/${this.repo}/dispatches`,
-      method: 'POST',
-      body: {
-        event_type: 'intake_submitted',
-        client_payload: {
-          workflow_type: workflowType,
-          intake_text: intakeText,
-        },
-      },
+  async pollForToken() {
+    return new Promise((resolve, reject) => {
+      const interval = setInterval(async () => {
+        try {
+          const resp = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              client_id: this.clientId,
+              device_code: this._deviceCode,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            }),
+          });
+          const data = await resp.json();
+          if (data.access_token) {
+            clearInterval(interval);
+            this.token = data.access_token;
+            localStorage.setItem(TOKEN_KEY, this.token);
+            resolve(this.token);
+          } else if (data.error === 'expired_token' || data.error === 'access_denied') {
+            clearInterval(interval);
+            reject(new Error(data.error));
+          }
+        } catch (err) {
+          clearInterval(interval);
+          reject(err);
+        }
+      }, this._pollInterval * 1000);
     });
   }
 
-  /**
-   * Patch an existing issue (e.g. add a label, update body, change state).
-   */
-  async patchIssue(number, patch) {
-    return this._proxyFetch({
-      path: `/repos/${this.repo}/issues/${number}`,
-      method: 'PATCH',
-      body: patch,
-    });
+  signOut() {
+    this.token = null;
+    localStorage.removeItem(TOKEN_KEY);
   }
 
-  // ---------------------------------------------------------------------------
-  // user_workflows table helpers (via Supabase JS client)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Return all workflow rows belonging to the given user.
-   */
-  async getUserWorkflows(userId) {
-    const { data, error } = await supabase
-      .from('user_workflows')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (error) throw new Error(`getUserWorkflows: ${error.message}`);
-    return data;
-  }
-
-  /**
-   * Persist a link between the signed-in user and a GitHub issue / workflow.
-   */
-  async saveUserWorkflow(userId, issueNumber, workflowId, workflowType) {
-    const { data, error } = await supabase
-      .from('user_workflows')
-      .insert({
-        user_id: userId,
-        issue_number: issueNumber,
-        workflow_id: workflowId,
-        workflow_type: workflowType,
-      })
-      .select()
-      .single();
-    if (error) throw new Error(`saveUserWorkflow: ${error.message}`);
-    return data;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Internal helpers
-  // ---------------------------------------------------------------------------
-
-  async _publicFetch(path) {
-    const url = `${GITHUB_API}${path}`;
-    const resp = await fetch(url, {
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    });
+  async _fetch(path, options = {}) {
+    const url = path.startsWith('https://') ? path : `https://api.github.com${path}`;
+    const headers = {
+      'Authorization': `Bearer ${this.token}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      ...options.headers,
+    };
+    const resp = await fetch(url, { ...options, headers });
     if (!resp.ok) {
       const text = await resp.text();
       throw new Error(`GitHub API ${resp.status}: ${text.slice(0, 200)}`);
@@ -147,25 +100,46 @@ export class GitHubClient {
     return resp.json();
   }
 
-  async _proxyFetch({ path, method = 'POST', body }) {
-    const session = await getSession();
-    if (!session) throw new Error('Not authenticated — please sign in.');
+  getIssue(number) {
+    return this._fetch(`/repos/${this.repo}/issues/${number}`);
+  }
 
-    const resp = await fetch(this.proxyUrl, {
+  listIssueComments(number) {
+    return this._fetch(`/repos/${this.repo}/issues/${number}/comments?per_page=100`);
+  }
+
+  listWorkflows() {
+    return this._fetch(`/repos/${this.repo}/issues?labels=flow:buy,flow:rent&state=open&per_page=50`);
+  }
+
+  postComment(number, body) {
+    return this._fetch(`/repos/${this.repo}/issues/${number}/comments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ path, method, body }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body }),
     });
+  }
 
-    const text = await resp.text();
-    const data = text ? JSON.parse(text) : {};
-    if (!resp.ok) {
-      throw new Error(`Proxy ${resp.status}: ${JSON.stringify(data).slice(0, 200)}`);
-    }
-    return data;
+  async submitIntake({ workflowType, intakeText }) {
+    await this._fetch(`/repos/${this.repo}/dispatches`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: 'intake_submitted',
+        client_payload: {
+          workflow_type: workflowType,
+          intake_text: intakeText,
+        },
+      }),
+    });
+  }
+
+  patchIssue(number, patch) {
+    return this._fetch(`/repos/${this.repo}/issues/${number}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
   }
 }
 
