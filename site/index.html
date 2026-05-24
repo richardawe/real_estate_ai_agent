@@ -5,11 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Real Estate AI Agent</title>
   <link rel="stylesheet" href="styles/main.css" />
+  <style>
+    .header-nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .header-nav a,
+    .header-nav button {
+      color: rgba(255,255,255,0.9);
+      text-decoration: none;
+      font-size: 0.88rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: var(--radius);
+      padding: 0.35rem 0.9rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .header-nav a:hover,
+    .header-nav button:hover {
+      background: rgba(255,255,255,0.25);
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1>Real Estate AI Agent</h1>
     <p class="tagline">Your free, private, human-confirmed property workflow</p>
+    <nav class="header-nav" id="header-nav">
+      <a href="workflow/">My workflows</a>
+      <a href="tasks/">Pending tasks</a>
+      <button id="auth-btn" type="button">Sign in</button>
+    </nav>
   </header>
 
   <main class="hero">
@@ -53,6 +85,28 @@
     <a href="https://github.com/richardawe/real_estate_ai_agent">Source code</a>
   </footer>
 
-  <script src="js/github-client.js" type="module"></script>
+  <script type="module">
+    import { getSession, signOut } from './js/auth.js';
+
+    const authBtn = document.getElementById('auth-btn');
+
+    async function updateNav() {
+      const session = await getSession();
+      if (session) {
+        authBtn.textContent = 'Sign out';
+        authBtn.addEventListener('click', async () => {
+          await signOut();
+          location.reload();
+        });
+      } else {
+        authBtn.textContent = 'Sign in';
+        authBtn.addEventListener('click', () => {
+          location.href = '/login/';
+        });
+      }
+    }
+
+    updateNav();
+  </script>
 </body>
 </html>

@@ -18,6 +18,7 @@
     </div>
   </main>
 
+  <script type="module">import { requireAuth } from '../js/auth.js'; await requireAuth();</script>
   <script type="module">
     import { gh } from '../js/github-client.js';
     import { renderHitlTask } from '../js/task-renderer.js';

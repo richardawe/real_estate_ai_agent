@@ -17,6 +17,7 @@
     </div>
   </main>
 
+  <script type="module">import { requireAuth } from '../js/auth.js'; await requireAuth();</script>
   <script src="../js/github-client.js" type="module"></script>
   <script type="module">
     import { initWorkflowView } from '../js/workflow-view.js';

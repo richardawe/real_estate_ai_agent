@@ -14,21 +14,15 @@
   </header>
 
   <main id="intake-app">
-    <div id="auth-gate" class="auth-gate">
-      <h2>Sign in with GitHub</h2>
-      <p>
-        Your workflow is stored as a GitHub Issue in your repository.
-        Sign in to create and manage your workflow. No additional account needed.
-      </p>
-      <button id="signin-btn" class="btn btn--approve">Sign in with GitHub</button>
-      <p class="muted">
-        Scope requested: <code>public_repo</code> (read/write issues only).
-        Your PII is encrypted before being stored.
-        <a href="../../PRIVACY.md">Privacy notice</a>
-      </p>
+    <!-- Auth gate is kept in markup but immediately hidden by intake.js after requireAuth() -->
+    <div id="auth-gate" class="auth-gate hidden">
+      <h2>Sign in to continue</h2>
+      <p>You need to be signed in to start a workflow.</p>
+      <a href="/login/" class="btn btn--approve">Sign in</a>
     </div>
 
     <form id="intake-form" class="intake-form hidden" novalidate>
+      <div id="intake-error" class="hidden" style="color:#c0392b;margin-bottom:1rem;font-size:0.9rem;"></div>
       <div class="steps" id="steps">
         <!-- Steps rendered by intake.js -->
       </div>
@@ -50,7 +44,6 @@
     </div>
   </main>
 
-  <script src="../js/github-client.js" type="module"></script>
-  <script src="intake.js" type="module"></script>
+  <script type="module" src="intake.js"></script>
 </body>
 </html>
