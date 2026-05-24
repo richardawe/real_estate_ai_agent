@@ -22,12 +22,15 @@ export function signOut() {
 /**
  * Redirect to /login/ if there is no active session.
  * Saves the current URL to sessionStorage so login.js can redirect back.
+ * Returns a promise that never resolves when redirecting — this halts
+ * any module that awaits it, preventing the page from running unauthenticated.
  */
-export function requireAuth() {
+export async function requireAuth() {
   const session = getSession();
   if (!session) {
     sessionStorage.setItem('returnTo', location.href);
     location.href = '/login/';
+    await new Promise(() => {}); // halt execution until navigation completes
   }
   return session;
 }
