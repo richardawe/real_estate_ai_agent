@@ -25,9 +25,9 @@ import requests
 from pydantic import BaseModel, ValidationError
 
 _OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-_PRIMARY_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
-_FALLBACK_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
-_VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"
+_PRIMARY_MODEL = "openai/gpt-oss-120b:free"
+_FALLBACK_MODEL = "minimax/minimax-m2.5:free"
+_VISION_MODEL = "openai/gpt-oss-120b:free"
 
 _RETRY_DELAYS = [2, 4, 8, 16]  # seconds between retries
 
