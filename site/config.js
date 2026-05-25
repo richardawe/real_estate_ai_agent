@@ -1,14 +1,20 @@
 /**
  * Site configuration.
- * Replace GITHUB_OAUTH_CLIENT_ID with your GitHub OAuth App's client ID.
- * This file is public — it must never contain secrets.
  *
- * BASE_PATH: the URL prefix where this site is served.
+ * GITHUB_PAT: create a Fine-Grained PAT at github.com/settings/tokens
+ *   → Fine-grained tokens → New token
+ *   → "Only select repositories" → real_estate_ai_agent
+ *   → Repository permissions:
+ *       Issues      → Read and write
+ *       Contents    → Read and write  (needed for repository_dispatch)
+ *   Worst-case exposure: someone can post issues/comments on this repo.
+ *
+ * BASE_PATH: URL prefix where this site is served.
  *   GitHub project page:  "/real_estate_ai_agent"
  *   Custom domain / root: ""
  */
 export const CONFIG = {
-  GITHUB_OAUTH_CLIENT_ID: "Iv23liHmwjQWe0zEJEbn",
+  GITHUB_PAT: "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",
   GITHUB_REPO: "richardawe/real_estate_ai_agent",
   BASE_PATH: "/real_estate_ai_agent",
 };

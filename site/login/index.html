@@ -3,146 +3,72 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in — Real Estate AI Agent</title>
+  <title>Setup required — Real Estate AI Agent</title>
   <link rel="stylesheet" href="../styles/main.css" />
   <style>
-    .auth-container {
-      max-width: 440px;
+    .setup-container {
+      max-width: 560px;
       margin: 3rem auto;
       padding: 0 1rem;
     }
-
-    .auth-card {
+    .setup-card {
       background: var(--card-bg);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       padding: 2rem;
-      text-align: center;
     }
-
-    .auth-card h2 { margin-top: 0; margin-bottom: 0.5rem; }
-
-    .auth-card > p {
-      color: var(--muted);
-      font-size: 0.92rem;
-      margin-bottom: 1.5rem;
-    }
-
-    #device-code-box {
-      display: none;
+    .setup-card h2 { margin-top: 0; }
+    .setup-card ol { padding-left: 1.25rem; line-height: 1.8; }
+    .setup-card code {
       background: #f4f4f4;
-      border-radius: var(--radius);
-      padding: 1.25rem;
-      margin-bottom: 1.25rem;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      font-size: 0.88em;
     }
-
-    #device-code-box .code {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      font-family: monospace;
-      margin: 0.5rem 0;
-    }
-
-    #device-code-box .hint {
-      font-size: 0.85rem;
-      color: var(--muted);
-      margin: 0.25rem 0;
-    }
-
-    #device-code-box a { color: var(--brand); font-weight: 600; }
-
-    .form-error {
-      background: #fdecea;
-      color: #c0392b;
-      border-radius: var(--radius);
-      padding: 0.75rem 1rem;
-      font-size: 0.88rem;
-      margin-bottom: 1rem;
-      display: none;
-      text-align: left;
-    }
-
-    .form-error.visible { display: block; }
-
-    .btn--github {
-      width: 100%;
-      padding: 0.75rem 1.25rem;
-      background: #24292f;
-      color: white;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 0.95rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-
-    .btn--github:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    .spinner {
-      display: inline-block;
-      width: 1em;
-      height: 1em;
-      border: 2px solid rgba(255,255,255,0.4);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.35em;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .github-icon { width: 18px; height: 18px; fill: white; }
+    .setup-card a { color: var(--brand); }
   </style>
 </head>
 <body>
   <header>
     <h1><a href="../" style="color:white;text-decoration:none">Real Estate AI Agent</a></h1>
-    <p class="tagline">Sign in to manage your workflows</p>
+    <p class="tagline">Setup required</p>
   </header>
 
-  <div class="auth-container">
-    <div class="auth-card">
-      <h2>Sign in with GitHub</h2>
+  <div class="setup-container">
+    <div class="setup-card">
+      <h2>GitHub PAT not configured</h2>
       <p>
-        No account creation needed — your existing GitHub account is used
-        to identify you and post workflow updates.
+        The site needs a Fine-Grained GitHub Personal Access Token to post
+        workflow requests. Follow these steps once, then the site will work
+        without any further sign-in.
       </p>
-
-      <div id="auth-error" class="form-error" role="alert"></div>
-
-      <div id="device-code-box">
-        <p class="hint">Open</p>
-        <a id="verify-link" href="https://github.com/login/device" target="_blank" rel="noopener">
-          github.com/login/device
-        </a>
-        <p class="hint">and enter this code:</p>
-        <div class="code" id="user-code">—</div>
-        <p class="hint" id="waiting-hint">Waiting for you to authorise…</p>
-      </div>
-
-      <button id="signin-btn" class="btn--github" type="button">
-        <svg class="github-icon" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-            0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-            -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
-            .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
-            -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0
-            1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82
-            1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01
-            1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
-        </svg>
-        Sign in with GitHub
-      </button>
+      <ol>
+        <li>
+          Go to
+          <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">
+            github.com/settings/tokens
+          </a>
+          → <strong>Generate new token</strong>
+        </li>
+        <li>Under <strong>Repository access</strong>, choose <em>Only select repositories</em> → <code>real_estate_ai_agent</code></li>
+        <li>
+          Under <strong>Repository permissions</strong>, set:
+          <ul>
+            <li>Issues → <strong>Read and write</strong></li>
+            <li>Contents → <strong>Read and write</strong></li>
+          </ul>
+        </li>
+        <li>Click <strong>Generate token</strong> and copy the value</li>
+        <li>
+          Open <code>site/config.js</code> in the repository and replace
+          <code>YOUR_FINE_GRAINED_PAT</code> with your token, then push to <code>main</code>
+        </li>
+      </ol>
+      <p>
+        The token is stored in a public file — its scope is intentionally
+        limited to this one repo (worst case: someone posts a comment on one of your issues).
+      </p>
     </div>
   </div>
-
-  <script type="module" src="login.js"></script>
 </body>
 </html>
