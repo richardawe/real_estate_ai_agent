@@ -57,17 +57,17 @@ export class GitHubClient {
   }
 
   async submitIntake({ workflowType, intakeText }) {
-    await this._fetch(`/repos/${this.repo}/dispatches`, {
+    const flowLabel = workflowType === 'rent' ? 'flow:rent' : 'flow:buy';
+    const issue = await this._fetch(`/repos/${this.repo}/issues`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        event_type: 'intake_submitted',
-        client_payload: {
-          workflow_type: workflowType,
-          intake_text: intakeText,
-        },
+        title: `${workflowType === 'rent' ? 'Rent' : 'Buy'} intake`,
+        body: intakeText,
+        labels: ['state:intake', flowLabel],
       }),
     });
+    return issue;
   }
 
   patchIssue(number, patch) {
