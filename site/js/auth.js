@@ -6,6 +6,8 @@
  * user token scoped to public_repo on this repo.
  */
 
+import { CONFIG } from '../config.js';
+
 const TOKEN_KEY = 'rwa_gh_token';
 
 /** Returns { token } when signed in, null otherwise. */
@@ -29,7 +31,7 @@ export async function requireAuth() {
   const session = getSession();
   if (!session) {
     sessionStorage.setItem('returnTo', location.href);
-    location.href = '/login/';
+    location.href = CONFIG.BASE_PATH + '/login/';
     await new Promise(() => {}); // halt execution until navigation completes
   }
   return session;

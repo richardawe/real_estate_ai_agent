@@ -87,6 +87,7 @@
 
   <script type="module">
     import { getSession, signOut } from './js/auth.js';
+    import { CONFIG } from './config.js';
 
     const authBtn = document.getElementById('auth-btn');
 
@@ -101,7 +102,7 @@
       } else {
         authBtn.textContent = 'Sign in';
         authBtn.addEventListener('click', () => {
-          location.href = '/login/';
+          location.href = CONFIG.BASE_PATH + '/login/';
         });
       }
     }

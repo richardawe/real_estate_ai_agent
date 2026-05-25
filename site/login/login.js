@@ -10,7 +10,7 @@ import { CONFIG } from '../config.js';
 
 // Already signed in — go straight to the return destination.
 if (getSession()) {
-  location.href = sessionStorage.getItem('returnTo') || '/';
+  location.href = sessionStorage.getItem('returnTo') || CONFIG.BASE_PATH + '/';
 }
 
 const gh = new GitHubClient({ repo: CONFIG.GITHUB_REPO, clientId: CONFIG.GITHUB_OAUTH_CLIENT_ID });
@@ -51,7 +51,7 @@ btn.addEventListener('click', async () => {
 
     // Token stored by pollForToken — redirect.
     waitingHint.textContent = 'Authorised! Redirecting…';
-    location.href = sessionStorage.getItem('returnTo') || '/';
+    location.href = sessionStorage.getItem('returnTo') || CONFIG.BASE_PATH + '/';
   } catch (err) {
     btn.disabled = false;
     btn.innerHTML = `
