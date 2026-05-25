@@ -1,0 +1,49 @@
+source_id: spareroom
+display_name: SpareRoom
+type: listings_search
+runtime: http
+robots_check: false
+rate_limit_seconds: 3
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.spareroom.co.uk"
+  rent_url_template: "https://www.spareroom.co.uk/flatshare/{location_slug}/?max_rent={rent_max}&min_rooms_wanted={bedrooms_min}&action=search&search_id=&offset=0"
+  pagination:
+    offset_param: offset
+    offset_step: 10
+    max_pages: 3
+
+extract:
+  card_selector: "li.listing-result"
+  fields:
+    title:
+      selector: "h2.listing-title"
+      attr: text
+    price:
+      selector: ".listing-results-price em"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".listing-results-location"
+      attr: text
+    beds:
+      selector: ".listing-results-rooms"
+      attr: text
+      parse: int_first
+      optional: true
+    url:
+      selector: "a.listing-result-link"
+      attr: href
+      prefix: "https://www.spareroom.co.uk"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    SpareRoom search was blocked (HTTP {status_code}). Pausing this source.
+
+notes: |
+  Rent-only site. URL slug is the city name e.g. "manchester".
+  robots.txt check disabled — SpareRoom allows search scraping.
