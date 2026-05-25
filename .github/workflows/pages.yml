@@ -25,6 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Inject secrets into config
+        env:
+          SITE_GITHUB_PAT: ${{ secrets.SITE_GITHUB_PAT }}
+        run: |
+          sed -i "s|YOUR_FINE_GRAINED_PAT|${SITE_GITHUB_PAT}|g" site/config.js
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
