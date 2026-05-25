@@ -14,7 +14,7 @@
  *   Custom domain / root: ""
  */
 export const CONFIG = {
-  GITHUB_PAT: "",
+  GITHUB_PAT: "YOUR_FINE_GRAINED_PAT",
   GITHUB_REPO: "richardawe/real_estate_ai_agent",
   BASE_PATH: "/real_estate_ai_agent",
 };
