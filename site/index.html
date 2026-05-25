@@ -40,7 +40,6 @@
     <nav class="header-nav" id="header-nav">
       <a href="workflow/">My workflows</a>
       <a href="tasks/">Pending tasks</a>
-      <button id="auth-btn" type="button">Sign in</button>
     </nav>
   </header>
 
@@ -85,29 +84,5 @@
     <a href="https://github.com/richardawe/real_estate_ai_agent">Source code</a>
   </footer>
 
-  <script type="module">
-    import { getSession, signOut } from './js/auth.js';
-    import { CONFIG } from './config.js';
-
-    const authBtn = document.getElementById('auth-btn');
-
-    async function updateNav() {
-      const session = await getSession();
-      if (session) {
-        authBtn.textContent = 'Sign out';
-        authBtn.addEventListener('click', async () => {
-          await signOut();
-          location.reload();
-        });
-      } else {
-        authBtn.textContent = 'Sign in';
-        authBtn.addEventListener('click', () => {
-          location.href = CONFIG.BASE_PATH + '/login/';
-        });
-      }
-    }
-
-    updateNav();
-  </script>
 </body>
 </html>

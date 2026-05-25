@@ -1,93 +1,28 @@
 /**
- * GitHub API client using the OAuth device flow.
+ * GitHub API client — PAT edition.
  *
- * The device flow lets the frontend authenticate without a backend server.
- * The token is stored in localStorage (disclosed in the privacy notice).
+ * Uses a Fine-Grained PAT stored in config.js for all API calls.
+ * Read operations (public repo) don't strictly need auth, but using
+ * the PAT avoids rate-limit issues.
  *
  * Usage:
- *   import { GitHubClient, gh } from './github-client.js';
+ *   import { gh } from './github-client.js';
  *   const issue = await gh.getIssue(123);
  */
 
 import { CONFIG } from '../config.js';
 
-const TOKEN_KEY = 'rwa_gh_token';
 const REPO = CONFIG.GITHUB_REPO;
 
 export class GitHubClient {
-  constructor({ repo = REPO, clientId } = {}) {
+  constructor({ repo = REPO } = {}) {
     this.repo = repo;
-    this.clientId = clientId || CONFIG.GITHUB_OAUTH_CLIENT_ID;
-    this.token = localStorage.getItem(TOKEN_KEY) || null;
-  }
-
-  get isAuthenticated() {
-    return Boolean(this.token);
-  }
-
-  /**
-   * Start the GitHub OAuth device flow. Returns { userCode, verificationUri }.
-   * The caller should display these to the user and then call pollForToken().
-   */
-  async startDeviceFlow() {
-    const resp = await fetch('https://github.com/login/device/code', {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: this.clientId, scope: 'public_repo' }),
-    });
-    const data = await resp.json();
-    this._deviceCode = data.device_code;
-    this._pollInterval = data.interval || 5;
-    return {
-      userCode: data.user_code,
-      verificationUri: data.verification_uri,
-    };
-  }
-
-  /**
-   * Poll GitHub until the user completes the device flow authorisation.
-   * Resolves when a token is obtained; rejects on expiry or error.
-   */
-  async pollForToken() {
-    return new Promise((resolve, reject) => {
-      const interval = setInterval(async () => {
-        try {
-          const resp = await fetch('https://github.com/login/oauth/access_token', {
-            method: 'POST',
-            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              client_id: this.clientId,
-              device_code: this._deviceCode,
-              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-            }),
-          });
-          const data = await resp.json();
-          if (data.access_token) {
-            clearInterval(interval);
-            this.token = data.access_token;
-            localStorage.setItem(TOKEN_KEY, this.token);
-            resolve(this.token);
-          } else if (data.error === 'expired_token' || data.error === 'access_denied') {
-            clearInterval(interval);
-            reject(new Error(data.error));
-          }
-        } catch (err) {
-          clearInterval(interval);
-          reject(err);
-        }
-      }, this._pollInterval * 1000);
-    });
-  }
-
-  signOut() {
-    this.token = null;
-    localStorage.removeItem(TOKEN_KEY);
   }
 
   async _fetch(path, options = {}) {
     const url = path.startsWith('https://') ? path : `https://api.github.com${path}`;
     const headers = {
-      'Authorization': `Bearer ${this.token}`,
+      'Authorization': `Bearer ${CONFIG.GITHUB_PAT}`,
       'Accept': 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
       ...options.headers,
@@ -97,6 +32,7 @@ export class GitHubClient {
       const text = await resp.text();
       throw new Error(`GitHub API ${resp.status}: ${text.slice(0, 200)}`);
     }
+    if (resp.status === 204) return {};
     return resp.json();
   }
 
