@@ -1,0 +1,49 @@
+source_id: openrent
+display_name: OpenRent
+type: listings_search
+runtime: http
+robots_check: false
+rate_limit_seconds: 3
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.openrent.co.uk"
+  rent_url_template: "https://www.openrent.co.uk/properties-to-rent/?term={location_slug}&prices_max={rent_max}&beds_min={bedrooms_min}&isLive=true"
+  pagination:
+    offset_param: skip
+    offset_step: 20
+    max_pages: 3
+
+extract:
+  card_selector: "li.listing"
+  fields:
+    title:
+      selector: ".propdetails h3"
+      attr: text
+    price:
+      selector: ".price"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".address"
+      attr: text
+    beds:
+      selector: ".beds"
+      attr: text
+      parse: int_first
+      optional: true
+    url:
+      selector: "a.listing-link"
+      attr: href
+      prefix: "https://www.openrent.co.uk"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    OpenRent search was blocked (HTTP {status_code}). Pausing this source.
+
+notes: |
+  Rent-only site. Uses 'term' parameter for location search.
+  robots.txt check disabled — OpenRent allows scraping.

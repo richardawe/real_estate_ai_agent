@@ -52,13 +52,19 @@ def _workflow_rules(workflow_type: str) -> dict[str, Any]:
     return _load_rules(name)
 
 
-def _source_ids_for_jurisdiction(jurisdiction: str) -> list[str]:
-    """Return adapter source_ids appropriate for a given jurisdiction."""
-    mapping: dict[str, list[str]] = {
-        "england": ["zoopla", "rightmove"],
-        "us_ca": ["craigslist"],
+def _source_ids_for_jurisdiction(jurisdiction: str, workflow_type: str = "buy") -> list[str]:
+    """Return adapter source_ids appropriate for a jurisdiction and workflow type."""
+    mapping: dict[str, dict[str, list[str]]] = {
+        "england": {
+            "buy": ["rightmove"],
+            "rent": ["spareroom", "openrent"],
+        },
+        "us_ca": {
+            "buy": ["craigslist"],
+            "rent": ["craigslist"],
+        },
     }
-    return mapping.get(jurisdiction, [])
+    return mapping.get(jurisdiction, {}).get(workflow_type, [])
 
 
 def _location_slug(location: str) -> str:
@@ -108,7 +114,7 @@ def run_discover(
     min_threshold: float = m_rules["min_score_threshold"]
     shortlist_size: int = m_rules["shortlist_size"]
 
-    source_ids = _source_ids_for_jurisdiction(jurisdiction)
+    source_ids = _source_ids_for_jurisdiction(jurisdiction, workflow_type)
     all_props: list[dict[str, Any]] = []
     warnings: list[str] = []
 
