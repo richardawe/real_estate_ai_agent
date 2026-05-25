@@ -4,6 +4,6 @@
  * This file is public — it must never contain secrets.
  */
 export const CONFIG = {
-  GITHUB_OAUTH_CLIENT_ID: "YOUR_OAUTH_APP_CLIENT_ID",
+  GITHUB_OAUTH_CLIENT_ID: "Iv23liHmwjQWe0zEJEbn",
   GITHUB_REPO: "richardawe/real_estate_ai_agent",
 };
