@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -39,13 +39,11 @@ class BuyIntakeExtraction(BaseModel):
     deposit_available: Optional[int] = None
     first_time_buyer: bool = False
 
-    @field_validator("budget_max")
-    @classmethod
-    def max_exceeds_min(cls, v: int, info: Any) -> int:
-        min_val = info.data.get("budget_min", 0)
-        if v < min_val:
-            raise ValueError("budget_max must be >= budget_min")
-        return v
+    @model_validator(mode="after")
+    def fix_budget_order(self) -> "BuyIntakeExtraction":
+        if self.budget_max < self.budget_min:
+            self.budget_min, self.budget_max = self.budget_max, self.budget_min
+        return self
 
 
 class RentIntakeExtraction(BaseModel):
