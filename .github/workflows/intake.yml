@@ -38,5 +38,5 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.client_payload.issue_number }}
           INTAKE_TEXT: ${{ toJson(github.event.client_payload.intake_text || '') }}
-          WORKFLOW_TYPE: ${{ github.event.client_payload.workflow_type || 'buy' }}
+          WORKFLOW_TYPE: ${{ github.event.client_payload.workflow_type || (contains(github.event.issue.labels.*.name, 'flow:rent') && 'rent') || 'buy' }}
         run: python -m workflows_lib.intake_action
