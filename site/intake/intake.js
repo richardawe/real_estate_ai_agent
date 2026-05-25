@@ -244,14 +244,13 @@ intakeForm.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Submitting…';
 
   try {
-    await gh.submitIntake({ workflowType: WORKFLOW_TYPE, intakeText });
+    const issue = await gh.submitIntake({ workflowType: WORKFLOW_TYPE, intakeText });
 
     intakeForm.classList.add('hidden');
     successMessage.classList.remove('hidden');
 
-    // Point user to their workflow list since we don't have the issue number yet.
     document.getElementById('workflow-link').href =
-      `https://github.com/${CONFIG.GITHUB_REPO}/issues`;
+      `https://github.com/${CONFIG.GITHUB_REPO}/issues/${issue.number}`;
   } catch (err) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit →';
