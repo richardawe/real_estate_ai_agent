@@ -129,8 +129,8 @@ def test_extract_invalid_json_raises(monkeypatch):
 
 def test_extract_schema_violation_raises(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    # budget_max < budget_min violates the validator
-    bad = json.dumps({**json.loads(VALID_BUY_JSON), "budget_max": 100_000})
+    # invalid email violates the validator
+    bad = json.dumps({**json.loads(VALID_BUY_JSON), "email": "not-an-email"})
     with patch("requests.post", return_value=_mock_response(bad)):
         with pytest.raises(ExtractionError, match="validation"):
             extract("extract", BuyIntakeExtraction)

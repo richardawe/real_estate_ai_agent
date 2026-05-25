@@ -36,10 +36,11 @@ def test_buy_intake_valid():
     assert m.first_time_buyer is True
 
 
-def test_buy_intake_max_below_min_raises():
+def test_buy_intake_max_below_min_swaps():
     data = {**VALID_BUY, "budget_min": 450_000, "budget_max": 300_000}
-    with pytest.raises(ValidationError, match="budget_max"):
-        BuyIntakeExtraction(**data)
+    result = BuyIntakeExtraction(**data)
+    assert result.budget_min == 300_000
+    assert result.budget_max == 450_000
 
 
 def test_buy_intake_invalid_email_raises():
