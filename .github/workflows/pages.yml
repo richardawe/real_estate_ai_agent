@@ -29,7 +29,12 @@ jobs:
         env:
           SITE_GITHUB_PAT: ${{ secrets.SITE_GITHUB_PAT }}
         run: |
+          if [ -z "$SITE_GITHUB_PAT" ]; then
+            echo "::error::SITE_GITHUB_PAT secret is not set — add it under Settings → Secrets → Actions"
+            exit 1
+          fi
           sed -i "s|YOUR_FINE_GRAINED_PAT|${SITE_GITHUB_PAT}|g" site/config.js
+          echo "Config injection OK (token length: ${#SITE_GITHUB_PAT})"
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
