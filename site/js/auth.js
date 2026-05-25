@@ -1,33 +1,15 @@
 /**
- * Auth stub — the site uses a Fine-Grained PAT in config.js for all
- * GitHub API calls. No per-user login is required.
- *
- * These exports exist so pages that call requireAuth() / getSession()
- * continue to work without modification.
+ * Auth stub — the site uses a Fine-Grained PAT injected at build time.
+ * No per-user sign-in is required; these exports are kept so pages that
+ * call requireAuth() / getSession() continue to work unchanged.
  */
 
-import { CONFIG } from '../config.js';
-
-/** Returns a session object when the PAT is configured, null otherwise. */
 export function getSession() {
-  return CONFIG.GITHUB_PAT && CONFIG.GITHUB_PAT !== 'YOUR_FINE_GRAINED_PAT'
-    ? { configured: true }
-    : null;
+  return { configured: true };
 }
 
-/** No-op — there is no user session to clear. */
 export function signOut() {}
 
-/**
- * Passes through when the PAT is configured.
- * Redirects to /login/ (configuration guide) if the PAT placeholder
- * has not been replaced yet.
- */
 export async function requireAuth() {
-  const session = getSession();
-  if (!session) {
-    location.href = CONFIG.BASE_PATH + '/login/';
-    await new Promise(() => {});
-  }
-  return session;
+  return { configured: true };
 }
