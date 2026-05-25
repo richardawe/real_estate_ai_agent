@@ -26,7 +26,7 @@ from pydantic import BaseModel, ValidationError
 
 _OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 _PRIMARY_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
-_FALLBACK_MODEL = "google/gemini-2.0-flash-exp:free"
+_FALLBACK_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
 _VISION_MODEL = "meta-llama/llama-3.2-11b-vision-instruct:free"
 
 _RETRY_DELAYS = [2, 4, 8, 16]  # seconds between retries
