@@ -1,14 +1,12 @@
 """
-LLM-powered property discovery using DuckDuckGo + LLM extraction.
+LLM-powered property discovery using Serper.dev + LLM extraction.
 
-Uses DuckDuckGo text search to find property listing URLs and snippets,
-then feeds them to the existing free OpenRouter LLM for structured extraction
-in a single batch call. No extra API keys required beyond OPENROUTER_API_KEY.
+Uses Serper.dev (Google search API, free tier: 2,500 queries/month) to find
+property listings, then feeds the returned snippets to the existing free
+OpenRouter LLM for structured extraction in a single batch call.
 
-NOTE: DuckDuckGo blocks datacenter/cloud IP ranges. This module works correctly
-when run locally. For GitHub Actions, configure a SEARCH_PROXY env var
-(e.g. a residential or rotating proxy URL) or swap _search() for another
-provider.
+Required env var: SERPER_API_KEY  (free at https://serper.dev)
+Existing env var: OPENROUTER_API_KEY (unchanged)
 """
 
 from __future__ import annotations
@@ -17,10 +15,12 @@ import hashlib
 import os
 from typing import Any
 
-from ddgs import DDGS
+import requests
 from pydantic import BaseModel
 
 from engine.extractor import ExtractionError, extract
+
+_SERPER_URL = "https://google.serper.dev/search"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -45,6 +45,13 @@ class _PropertyListing(BaseModel):
 
 class _PropertyListResult(BaseModel):
     properties: list[_PropertyListing] = []
+
+
+def _serper_api_key() -> str:
+    key = os.environ.get("SERPER_API_KEY", "")
+    if not key:
+        raise EnvironmentError("SERPER_API_KEY is not set")
+    return key
 
 
 def _build_query(
@@ -79,13 +86,25 @@ def _build_query(
 
 
 def _search(query: str, max_results: int) -> list[dict[str, str]]:
-    """Run a DuckDuckGo text search. Returns list of {title, url, body}."""
-    proxy = os.environ.get("SEARCH_PROXY")
-    try:
-        results = list(DDGS(proxy=proxy).text(query, max_results=max_results))
-        return [{"title": r.get("title", ""), "url": r.get("href", ""), "body": r.get("body", "")} for r in results]
-    except Exception:
-        return []
+    """Call Serper.dev Google Search API. Returns list of {title, url, body}."""
+    resp = requests.post(
+        _SERPER_URL,
+        headers={
+            "X-API-KEY": _serper_api_key(),
+            "Content-Type": "application/json",
+        },
+        json={"q": query, "num": min(max_results, 20)},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return [
+        {
+            "title": r.get("title", ""),
+            "url": r.get("link", ""),
+            "body": r.get("snippet", ""),
+        }
+        for r in resp.json().get("organic", [])
+    ]
 
 
 def _url_id(source_id: str, url: str) -> str:
@@ -101,8 +120,9 @@ def run_llm_search(
     max_results: int = 20,
 ) -> list[dict[str, Any]]:
     """
-    Search for property listings via DuckDuckGo + LLM extraction.
+    Search for property listings via Serper.dev + LLM extraction.
     Returns property dicts compatible with the eligibility and scoring engine.
+    Raises EnvironmentError if SERPER_API_KEY is missing.
     Returns an empty list on search or extraction failure.
     """
     query = _build_query(source_id, workflow_type, requirements, location)
