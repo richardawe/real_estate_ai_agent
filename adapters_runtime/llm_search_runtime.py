@@ -1,18 +1,23 @@
 """
 LLM-powered property discovery using DuckDuckGo + LLM extraction.
 
-Replaces the HTTP scraper runtime. Uses DuckDuckGo to find property listings
-via text search, then feeds the returned snippets to the LLM for structured
-extraction in a single call. No extra API keys required — uses the existing
-OPENROUTER_API_KEY and DuckDuckGo's public search interface.
+Uses DuckDuckGo text search to find property listing URLs and snippets,
+then feeds them to the existing free OpenRouter LLM for structured extraction
+in a single batch call. No extra API keys required beyond OPENROUTER_API_KEY.
+
+NOTE: DuckDuckGo blocks datacenter/cloud IP ranges. This module works correctly
+when run locally. For GitHub Actions, configure a SEARCH_PROXY env var
+(e.g. a residential or rotating proxy URL) or swap _search() for another
+provider.
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Any
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from pydantic import BaseModel
 
 from engine.extractor import ExtractionError, extract
@@ -74,8 +79,11 @@ def _build_query(
 
 
 def _search(query: str, max_results: int) -> list[dict[str, str]]:
+    """Run a DuckDuckGo text search. Returns list of {title, url, body}."""
+    proxy = os.environ.get("SEARCH_PROXY")
     try:
-        return list(DDGS().text(query, max_results=max_results))
+        results = list(DDGS(proxy=proxy).text(query, max_results=max_results))
+        return [{"title": r.get("title", ""), "url": r.get("href", ""), "body": r.get("body", "")} for r in results]
     except Exception:
         return []
 
@@ -95,7 +103,7 @@ def run_llm_search(
     """
     Search for property listings via DuckDuckGo + LLM extraction.
     Returns property dicts compatible with the eligibility and scoring engine.
-    Raises no exceptions — returns an empty list on any failure.
+    Returns an empty list on search or extraction failure.
     """
     query = _build_query(source_id, workflow_type, requirements, location)
     raw = _search(query, max_results)
@@ -104,7 +112,7 @@ def run_llm_search(
 
     snippets = "\n\n".join(
         f"[{i + 1}] Title: {r.get('title', '')}\n"
-        f"    URL: {r.get('href', '')}\n"
+        f"    URL: {r.get('url', '')}\n"
         f"    Snippet: {r.get('body', '')[:_SNIPPET_CHARS]}"
         for i, r in enumerate(raw)
     )
@@ -123,7 +131,7 @@ def run_llm_search(
         f"- {price_field}\n"
         f"- beds (integer or null)\n"
         f"- property_type (e.g. flat, house, semi-detached, or null)\n"
-        f"- features (list of strings, e.g. [\"garden\", \"parking\", \"garage\"])\n"
+        f'- features (list of strings, e.g. ["garden", "parking", "garage"])\n'
         f"- url (the result URL string)\n\n"
         f"Only include results that describe a single specific property listing. "
         f"Skip search pages, category pages, and non-property results."
