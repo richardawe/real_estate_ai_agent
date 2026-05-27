@@ -142,9 +142,20 @@ def run_discover(
     scored.sort(key=lambda x: x["score"].total, reverse=True)
     shortlisted = scored[:shortlist_size]
 
-    # Update front-matter shortlist.
+    # Update front-matter shortlist — save IDs and enough data for viewings.
     shortlist_ids = [s["prop"].get("external_id", "") for s in shortlisted]
+    shortlist_properties = [
+        {
+            "external_id": s["prop"].get("external_id", ""),
+            "address": s["prop"].get("address", ""),
+            "price": s["prop"].get("price") or s["prop"].get("rent_monthly"),
+            "beds": s["prop"].get("beds"),
+            "url": s["prop"].get("url", ""),
+        }
+        for s in shortlisted
+    ]
     fm["shortlist"] = shortlist_ids
+    fm["shortlist_properties"] = shortlist_properties
     new_body = render_front_matter(fm, prose)
 
     # Transition state.
