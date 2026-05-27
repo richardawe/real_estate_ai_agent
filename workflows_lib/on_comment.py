@@ -81,7 +81,23 @@ def handle_approve(
     kind = hitl_labels[0][len("hitl:"):]
     new_labels = remove_hitl(labels, kind)
 
-    # State advances that are triggered by /approve.
+    # Approving the shortlist review → schedule viewings for liked properties.
+    if kind == "review_shortlist":
+        from workflows_lib.viewings import schedule_viewings
+        fm, _ = parse_front_matter(body)
+        liked_ids: list[str] = fm.get("liked", []) or []
+        all_props: list[dict] = fm.get("shortlist_properties", []) or []
+        liked_props = [p for p in all_props if p.get("external_id") in liked_ids]
+        if not liked_props:
+            return CommandResult(
+                body, new_labels,
+                "No liked properties found. Use `/like <property_id>` on at least one property first."
+            )
+        buyer_name: str = fm.get("requirements", {}).get("applicant_name", "Applicant")
+        new_body, new_labels, hitl_comment = schedule_viewings(body, new_labels, liked_props, buyer_name)
+        return CommandResult(new_body, new_labels, hitl_comment)
+
+    # State advances triggered by /approve for other HITL tasks.
     state = current_state(new_labels)
     advance_map = {
         State.OFFER_DRAFT: State.OFFER_SUBMITTED,
