@@ -169,7 +169,7 @@ def score_property(
     # --- price fit ---
     budget_min = requirements.get("budget_min") or requirements.get("rent_min", 0)
     budget_max = requirements.get("budget_max") or requirements.get("rent_max", 0)
-    prop_price = prop.get("price") or prop.get("rent_monthly", 0)
+    prop_price = prop.get("price") or prop.get("rent_monthly") or 0
     midpoint = (budget_min + budget_max) / 2 if budget_max else prop_price
     decay = matching_rules["price_fit_decay"]
     if midpoint > 0:
