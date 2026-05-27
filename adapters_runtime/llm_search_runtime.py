@@ -1,21 +1,26 @@
 """
-LLM-powered property discovery using DuckDuckGo + LLM extraction.
+LLM-powered property discovery using Serper.dev + LLM extraction.
 
-Replaces the HTTP scraper runtime. Uses DuckDuckGo to find property listings
-via text search, then feeds the returned snippets to the LLM for structured
-extraction in a single call. No extra API keys required — uses the existing
-OPENROUTER_API_KEY and DuckDuckGo's public search interface.
+Uses Serper.dev (Google search API, free tier: 2,500 queries/month) to find
+property listings, then feeds the returned snippets to the existing free
+OpenRouter LLM for structured extraction in a single batch call.
+
+Required env var: SERPER_API_KEY  (free at https://serper.dev)
+Existing env var: OPENROUTER_API_KEY (unchanged)
 """
 
 from __future__ import annotations
 
 import hashlib
+import os
 from typing import Any
 
-from duckduckgo_search import DDGS
+import requests
 from pydantic import BaseModel
 
 from engine.extractor import ExtractionError, extract
+
+_SERPER_URL = "https://google.serper.dev/search"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -40,6 +45,13 @@ class _PropertyListing(BaseModel):
 
 class _PropertyListResult(BaseModel):
     properties: list[_PropertyListing] = []
+
+
+def _serper_api_key() -> str:
+    key = os.environ.get("SERPER_API_KEY", "")
+    if not key:
+        raise EnvironmentError("SERPER_API_KEY is not set")
+    return key
 
 
 def _build_query(
@@ -74,10 +86,25 @@ def _build_query(
 
 
 def _search(query: str, max_results: int) -> list[dict[str, str]]:
-    try:
-        return list(DDGS().text(query, max_results=max_results))
-    except Exception:
-        return []
+    """Call Serper.dev Google Search API. Returns list of {title, url, body}."""
+    resp = requests.post(
+        _SERPER_URL,
+        headers={
+            "X-API-KEY": _serper_api_key(),
+            "Content-Type": "application/json",
+        },
+        json={"q": query, "num": min(max_results, 20)},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return [
+        {
+            "title": r.get("title", ""),
+            "url": r.get("link", ""),
+            "body": r.get("snippet", ""),
+        }
+        for r in resp.json().get("organic", [])
+    ]
 
 
 def _url_id(source_id: str, url: str) -> str:
@@ -93,9 +120,10 @@ def run_llm_search(
     max_results: int = 20,
 ) -> list[dict[str, Any]]:
     """
-    Search for property listings via DuckDuckGo + LLM extraction.
+    Search for property listings via Serper.dev + LLM extraction.
     Returns property dicts compatible with the eligibility and scoring engine.
-    Raises no exceptions — returns an empty list on any failure.
+    Raises EnvironmentError if SERPER_API_KEY is missing.
+    Returns an empty list on search or extraction failure.
     """
     query = _build_query(source_id, workflow_type, requirements, location)
     raw = _search(query, max_results)
@@ -104,7 +132,7 @@ def run_llm_search(
 
     snippets = "\n\n".join(
         f"[{i + 1}] Title: {r.get('title', '')}\n"
-        f"    URL: {r.get('href', '')}\n"
+        f"    URL: {r.get('url', '')}\n"
         f"    Snippet: {r.get('body', '')[:_SNIPPET_CHARS]}"
         for i, r in enumerate(raw)
     )
@@ -123,7 +151,7 @@ def run_llm_search(
         f"- {price_field}\n"
         f"- beds (integer or null)\n"
         f"- property_type (e.g. flat, house, semi-detached, or null)\n"
-        f"- features (list of strings, e.g. [\"garden\", \"parking\", \"garage\"])\n"
+        f'- features (list of strings, e.g. ["garden", "parking", "garage"])\n'
         f"- url (the result URL string)\n\n"
         f"Only include results that describe a single specific property listing. "
         f"Skip search pages, category pages, and non-property results."
