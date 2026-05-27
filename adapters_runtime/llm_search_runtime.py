@@ -96,6 +96,12 @@ def _search(query: str, max_results: int) -> list[dict[str, str]]:
         json={"q": query, "num": min(max_results, 20)},
         timeout=15,
     )
+    if resp.status_code in (401, 403):
+        raise EnvironmentError(
+            f"Serper.dev rejected the API key (HTTP {resp.status_code}). "
+            "Check that SERPER_API_KEY is set correctly in GitHub Actions secrets "
+            "and that the key is activated at https://serper.dev/dashboard."
+        )
     resp.raise_for_status()
     return [
         {
