@@ -199,6 +199,10 @@ def run_llm_search(
 
     props: list[dict[str, Any]] = []
     for p in result.properties:
+        # Skip listings the LLM could not extract a price for — they cannot
+        # pass hard filters or be scored meaningfully.
+        if p.price is None and p.rent_monthly is None:
+            continue
         d = p.model_dump()
         d["source_id"] = source_id
         d["external_id"] = _url_id(source_id, d.get("url") or "")
