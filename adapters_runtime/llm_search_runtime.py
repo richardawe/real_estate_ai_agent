@@ -1,12 +1,13 @@
 """
-LLM-powered property discovery using SerpAPI + LLM extraction.
+LLM-powered property discovery using SerpAPI + Serper.dev + LLM extraction.
 
-Uses SerpAPI (serpapi.com) to run Google searches for property listings,
-then feeds the returned snippets to the existing free OpenRouter LLM for
-structured extraction in a single batch call.
+Supports two Google search providers with automatic fallback:
+  1. SerpAPI   (serpapi.com)   — set SERPAPI_API_KEY   (100 searches/month free)
+  2. Serper.dev (serper.dev)   — set SERPER_API_KEY    (2,500 searches/month free)
 
-Required env var: SERPAPI_API_KEY  (https://serpapi.com)
-Existing env var: OPENROUTER_API_KEY (unchanged)
+Configure one or both. If both keys are present, SerpAPI is tried first; on
+quota exhaustion or auth failure it falls back to Serper.dev automatically,
+giving up to 2,600 free searches/month combined.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from pydantic import BaseModel
 from engine.extractor import ExtractionError, extract
 
 _SERPAPI_URL = "https://serpapi.com/search.json"
+_SERPER_URL = "https://google.serper.dev/search"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -45,13 +47,6 @@ class _PropertyListing(BaseModel):
 
 class _PropertyListResult(BaseModel):
     properties: list[_PropertyListing] = []
-
-
-def _serpapi_key() -> str:
-    key = os.environ.get("SERPAPI_API_KEY", "")
-    if not key:
-        raise EnvironmentError("SERPAPI_API_KEY is not set")
-    return key
 
 
 def _build_query(
@@ -85,32 +80,67 @@ def _build_query(
     return " ".join(parts)
 
 
-def _search(query: str, max_results: int) -> list[dict[str, str]]:
-    """Call SerpAPI Google Search. Returns list of {title, url, body}."""
+def _search_serpapi(query: str, max_results: int, key: str) -> list[dict[str, str]]:
     resp = requests.get(
         _SERPAPI_URL,
-        params={
-            "q": query,
-            "num": min(max_results, 20),
-            "api_key": _serpapi_key(),
-        },
+        params={"q": query, "num": min(max_results, 20), "api_key": key},
         timeout=15,
     )
-    if resp.status_code in (401, 403):
-        raise EnvironmentError(
-            f"SerpAPI rejected the API key (HTTP {resp.status_code}). "
-            "Check that SERPAPI_API_KEY is set correctly in GitHub Actions secrets "
-            "and that the key is active at https://serpapi.com/manage-api-key."
-        )
+    if resp.status_code in (401, 403, 429):
+        raise RuntimeError(f"SerpAPI HTTP {resp.status_code}")
     resp.raise_for_status()
     return [
-        {
-            "title": r.get("title", ""),
-            "url": r.get("link", ""),
-            "body": r.get("snippet", ""),
-        }
+        {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
         for r in resp.json().get("organic_results", [])
     ]
+
+
+def _search_serper(query: str, max_results: int, key: str) -> list[dict[str, str]]:
+    resp = requests.post(
+        _SERPER_URL,
+        headers={"X-API-KEY": key, "Content-Type": "application/json"},
+        json={"q": query, "num": min(max_results, 20)},
+        timeout=15,
+    )
+    if resp.status_code in (401, 403, 429):
+        raise RuntimeError(f"Serper.dev HTTP {resp.status_code}")
+    resp.raise_for_status()
+    return [
+        {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
+        for r in resp.json().get("organic", [])
+    ]
+
+
+def _search(query: str, max_results: int) -> list[dict[str, str]]:
+    """
+    Try each configured search provider in order, falling back automatically.
+    Raises EnvironmentError if no provider keys are configured.
+    Raises RuntimeError if all configured providers fail.
+    """
+    providers = [
+        ("SerpAPI",    "SERPAPI_API_KEY", _search_serpapi),
+        ("Serper.dev", "SERPER_API_KEY",  _search_serper),
+    ]
+
+    configured = [(name, os.environ[env], fn) for name, env, fn in providers if os.environ.get(env)]
+
+    if not configured:
+        raise EnvironmentError(
+            "No search provider configured. "
+            "Set SERPAPI_API_KEY (serpapi.com) or SERPER_API_KEY (serper.dev) — or both."
+        )
+
+    last_error: Exception | None = None
+    for name, key, fn in configured:
+        try:
+            return fn(query, max_results, key)
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    raise RuntimeError(
+        f"All search providers failed. Last error: {last_error}"
+    )
 
 
 def _url_id(source_id: str, url: str) -> str:
@@ -126,10 +156,9 @@ def run_llm_search(
     max_results: int = 20,
 ) -> list[dict[str, Any]]:
     """
-    Search for property listings via Serper.dev + LLM extraction.
+    Search for property listings via Google (SerpAPI/Serper.dev) + LLM extraction.
     Returns property dicts compatible with the eligibility and scoring engine.
-    Raises EnvironmentError if SERPER_API_KEY is missing.
-    Returns an empty list on search or extraction failure.
+    Returns an empty list on extraction failure.
     """
     query = _build_query(source_id, workflow_type, requirements, location)
     raw = _search(query, max_results)
