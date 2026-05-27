@@ -1,11 +1,11 @@
 """
-LLM-powered property discovery using Serper.dev + LLM extraction.
+LLM-powered property discovery using SerpAPI + LLM extraction.
 
-Uses Serper.dev (Google search API, free tier: 2,500 queries/month) to find
-property listings, then feeds the returned snippets to the existing free
-OpenRouter LLM for structured extraction in a single batch call.
+Uses SerpAPI (serpapi.com) to run Google searches for property listings,
+then feeds the returned snippets to the existing free OpenRouter LLM for
+structured extraction in a single batch call.
 
-Required env var: SERPER_API_KEY  (free at https://serper.dev)
+Required env var: SERPAPI_API_KEY  (https://serpapi.com)
 Existing env var: OPENROUTER_API_KEY (unchanged)
 """
 
@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from engine.extractor import ExtractionError, extract
 
-_SERPER_URL = "https://google.serper.dev/search"
+_SERPAPI_URL = "https://serpapi.com/search.json"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -47,10 +47,10 @@ class _PropertyListResult(BaseModel):
     properties: list[_PropertyListing] = []
 
 
-def _serper_api_key() -> str:
-    key = os.environ.get("SERPER_API_KEY", "")
+def _serpapi_key() -> str:
+    key = os.environ.get("SERPAPI_API_KEY", "")
     if not key:
-        raise EnvironmentError("SERPER_API_KEY is not set")
+        raise EnvironmentError("SERPAPI_API_KEY is not set")
     return key
 
 
@@ -86,21 +86,21 @@ def _build_query(
 
 
 def _search(query: str, max_results: int) -> list[dict[str, str]]:
-    """Call Serper.dev Google Search API. Returns list of {title, url, body}."""
-    resp = requests.post(
-        _SERPER_URL,
-        headers={
-            "X-API-KEY": _serper_api_key(),
-            "Content-Type": "application/json",
+    """Call SerpAPI Google Search. Returns list of {title, url, body}."""
+    resp = requests.get(
+        _SERPAPI_URL,
+        params={
+            "q": query,
+            "num": min(max_results, 20),
+            "api_key": _serpapi_key(),
         },
-        json={"q": query, "num": min(max_results, 20)},
         timeout=15,
     )
     if resp.status_code in (401, 403):
         raise EnvironmentError(
-            f"Serper.dev rejected the API key (HTTP {resp.status_code}). "
-            "Check that SERPER_API_KEY is set correctly in GitHub Actions secrets "
-            "and that the key is activated at https://serper.dev/dashboard."
+            f"SerpAPI rejected the API key (HTTP {resp.status_code}). "
+            "Check that SERPAPI_API_KEY is set correctly in GitHub Actions secrets "
+            "and that the key is active at https://serpapi.com/manage-api-key."
         )
     resp.raise_for_status()
     return [
@@ -109,7 +109,7 @@ def _search(query: str, max_results: int) -> list[dict[str, str]]:
             "url": r.get("link", ""),
             "body": r.get("snippet", ""),
         }
-        for r in resp.json().get("organic", [])
+        for r in resp.json().get("organic_results", [])
     ]
 
 
