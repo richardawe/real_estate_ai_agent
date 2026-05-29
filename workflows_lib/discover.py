@@ -17,12 +17,7 @@ from typing import Any
 
 import yaml
 
-from adapters_runtime.listings_runtime import (
-    AdapterAbortError,
-    build_search_url,
-    load_adapter,
-    run_http_search,
-)
+from adapters_runtime.llm_search_runtime import run_llm_search
 from engine.eligibility import is_eligible, must_have_score
 from engine.pricing import score_property
 from engine.state_machine import State, add_hitl, current_state, transition
@@ -34,7 +29,6 @@ from workflows_lib.issue_io import (
 )
 
 _RULES_DIR = Path(__file__).parent.parent / "rules"
-_ADAPTERS_DIR = Path(__file__).parent.parent / "adapters" / "listings"
 _PROMPTS_DIR = Path(__file__).parent.parent / "engine" / "prompts" / "hitl"
 
 
@@ -120,21 +114,14 @@ def run_discover(
 
     if not dry_run:
         for source_id in source_ids:
-            try:
-                adapter = load_adapter(source_id)
-            except FileNotFoundError:
-                continue
-
             for location in requirements.get("locations", []):
-                slug = _location_slug(location)
-                url = build_search_url(adapter, workflow_type, requirements, slug)
                 try:
-                    props = run_http_search(adapter, url)
-                    for p in props:
-                        p.setdefault("external_id", f"{source_id}-{hash(p.get('url', ''))}")
+                    props = run_llm_search(
+                        source_id, workflow_type, requirements, location
+                    )
                     all_props.extend(props)
-                except AdapterAbortError as e:
-                    warnings.append(e.message)
+                except Exception as exc:
+                    warnings.append(f"Search error ({source_id}/{location}): {exc}")
 
     # Score and filter.
     scored: list[dict[str, Any]] = []
@@ -155,9 +142,20 @@ def run_discover(
     scored.sort(key=lambda x: x["score"].total, reverse=True)
     shortlisted = scored[:shortlist_size]
 
-    # Update front-matter shortlist.
+    # Update front-matter shortlist — save IDs and enough data for viewings.
     shortlist_ids = [s["prop"].get("external_id", "") for s in shortlisted]
+    shortlist_properties = [
+        {
+            "external_id": s["prop"].get("external_id", ""),
+            "address": s["prop"].get("address", ""),
+            "price": s["prop"].get("price") or s["prop"].get("rent_monthly"),
+            "beds": s["prop"].get("beds"),
+            "url": s["prop"].get("url", ""),
+        }
+        for s in shortlisted
+    ]
     fm["shortlist"] = shortlist_ids
+    fm["shortlist_properties"] = shortlist_properties
     new_body = render_front_matter(fm, prose)
 
     # Transition state.

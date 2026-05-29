@@ -152,15 +152,32 @@ def handle_approve(
     kind = hitl_labels[0][len("hitl:"):]
     new_labels = remove_hitl(labels, kind)
 
+    # Shortlist approval: schedule viewings (buy) or advance to lease review (rent).
+    if kind == "review_shortlist":
+        fm, _ = parse_front_matter(body)
+        workflow_type = fm.get("type", "buy")
+        liked_ids: list[str] = fm.get("liked", []) or []
+
+        # Buy path with known property data: use schedule_viewings for LLM-drafted emails.
+        if workflow_type == "buy" and liked_ids:
+            from workflows_lib.viewings import schedule_viewings
+            all_props: list[dict] = fm.get("shortlist_properties", []) or []
+            liked_props = [p for p in all_props if p.get("external_id") in liked_ids]
+            if liked_props:
+                buyer_name: str = (fm.get("requirements") or {}).get("full_name", "Applicant")
+                new_body, new_labels, hitl_comment = schedule_viewings(body, new_labels, liked_props, buyer_name)
+                return CommandResult(new_body, new_labels, hitl_comment)
+
+        # Rent path, or buy without cached property data: advance state + contact templates.
+        state = current_state(new_labels)
+        if state == State.SHORTLIST_REVIEW:
+            next_state = State.LEASE_REVIEW if workflow_type == "rent" else State.VIEWINGS
+            new_labels = transition(new_labels, next_state)
+        return CommandResult(body, new_labels, _build_contact_reply(fm, workflow_type))
+
     fm, _ = parse_front_matter(body)
     workflow_type = fm.get("type", "buy")
     state = current_state(new_labels)
-
-    # Shortlist approval: advance state and generate viewing contact templates.
-    if kind == "review_shortlist" and state == State.SHORTLIST_REVIEW:
-        next_state = State.LEASE_REVIEW if workflow_type == "rent" else State.VIEWINGS
-        new_labels = transition(new_labels, next_state)
-        return CommandResult(body, new_labels, _build_contact_reply(fm, workflow_type))
 
     # Offer approval: advance state and generate submission package.
     if kind == "approve_offer" and state == State.OFFER_DRAFT:
