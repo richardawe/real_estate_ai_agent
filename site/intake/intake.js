@@ -250,7 +250,7 @@ intakeForm.addEventListener('submit', async (e) => {
     successMessage.classList.remove('hidden');
 
     document.getElementById('workflow-link').href =
-      `https://github.com/${CONFIG.GITHUB_REPO}/issues/${issue.number}`;
+      `${CONFIG.BASE_PATH}/workflow/?id=${issue.number}`;
   } catch (err) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Submit →';

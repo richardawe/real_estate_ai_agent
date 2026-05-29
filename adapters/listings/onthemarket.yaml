@@ -1,0 +1,50 @@
+source_id: onthemarket
+display_name: OnTheMarket
+type: listings_search
+runtime: http
+robots_check: false
+rate_limit_seconds: 3
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.onthemarket.com"
+  buy_url_template: "https://www.onthemarket.com/for-sale/property/{location_slug}/?min-bedrooms={bedrooms_min}&max-price={budget_max}"
+  rent_url_template: "https://www.onthemarket.com/to-rent/property/{location_slug}/?min-bedrooms={bedrooms_min}&max-price={rent_max}"
+  pagination:
+    offset_param: page
+    offset_step: 1
+    max_pages: 3
+
+extract:
+  card_selector: "li.results-list-item"
+  fields:
+    title:
+      selector: "h2.property-title"
+      attr: text
+    price:
+      selector: ".price"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".address"
+      attr: text
+    beds:
+      selector: ".beds"
+      attr: text
+      parse: int_first
+      optional: true
+    url:
+      selector: "a.property-link"
+      attr: href
+      prefix: "https://www.onthemarket.com"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    OnTheMarket search was blocked (HTTP {status_code}). Pausing this source.
+
+notes: |
+  UK property portal covering buy and rent. Used for England buy searches.
+  CSS selectors may need tuning if OnTheMarket updates their markup.
