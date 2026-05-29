@@ -50,8 +50,8 @@ def _source_ids_for_jurisdiction(jurisdiction: str, workflow_type: str = "buy") 
     """Return adapter source_ids appropriate for a jurisdiction and workflow type."""
     mapping: dict[str, dict[str, list[str]]] = {
         "england": {
-            "buy": ["rightmove"],
-            "rent": ["spareroom", "openrent"],
+            "buy": ["onthemarket", "rightmove"],
+            "rent": ["spareroom", "openrent", "gumtree_uk"],
         },
         "us_ca": {
             "buy": ["craigslist"],

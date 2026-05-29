@@ -65,14 +65,85 @@ def parse_command(comment_body: str) -> Optional[ParsedCommand]:
     return ParsedCommand(name=m.group(1).lower(), arg=(m.group(2) or "").strip() or None)
 
 
+def _build_contact_reply(fm: dict, workflow_type: str) -> str:
+    liked = fm.get("liked") or []
+    requirements = fm.get("requirements") or {}
+    name = requirements.get("full_name") or "I"
+    beds = requirements.get("bedrooms_min", "")
+    beds_str = f"{beds}-bedroom " if beds else ""
+
+    if not liked:
+        if workflow_type == "rent":
+            return (
+                "Shortlist approved — moving to the next step.\n\n"
+                "_Tip: use `/like <id>` on properties you want to pursue "
+                "and I'll generate ready-to-send viewing request templates._"
+            )
+        return (
+            "Shortlist approved — viewing stage started.\n\n"
+            "_Tip: use `/like <id>` on properties you want to view "
+            "and I'll generate contact templates for the agents._"
+        )
+
+    header = (
+        "## Viewing request templates\n\n"
+        "Here are ready-to-send messages for each property you liked. "
+        "Visit each listing link and send this to the agent or landlord:\n\n"
+    )
+    blocks = []
+    for pid in liked:
+        if workflow_type == "rent":
+            msg = (
+                "Subject: Viewing enquiry\n\n"
+                "Hello,\n\n"
+                f"I came across this property listing and I'm very interested in arranging a viewing.\n\n"
+                f"I'm looking for a {beds_str}property to rent and yours matches my requirements well. "
+                "I'd love to visit at your earliest convenience — please let me know available times.\n\n"
+                f"Kind regards,\n{name}"
+            )
+        else:
+            budget_max = requirements.get("budget_max")
+            budget_str = f"£{budget_max:,}" if isinstance(budget_max, int) else "within my budget"
+            ftb = " (first-time buyer)" if requirements.get("first_time_buyer") else ""
+            msg = (
+                "Subject: Viewing request\n\n"
+                "Hello,\n\n"
+                "I'm interested in viewing this property and would like to arrange an appointment "
+                "at your earliest convenience.\n\n"
+                f"I'm a{ftb} buyer looking for a {beds_str}property with a budget of {budget_str}.\n\n"
+                f"Kind regards,\n{name}"
+            )
+        blocks.append(f"### Property `{pid}`\n\n```\n{msg}\n```")
+    return header + "\n\n---\n\n".join(blocks)
+
+
+def _build_offer_submission_reply(fm: dict) -> str:
+    tx = fm.get("current_transaction") or {}
+    if not isinstance(tx, dict) or not tx:
+        return "Offer approved. Send the draft letter from the previous comment to the estate agent."
+    letter = tx.get("draft_letter", "")
+    address = tx.get("property_address", "the selected property")
+    amount = tx.get("amount")
+    amount_str = f"£{amount:,}" if isinstance(amount, int) else "as discussed"
+    return (
+        f"## Offer submission package\n\n"
+        f"Your offer of **{amount_str}** for **{address}** has been approved.\n\n"
+        f"### Send this to the estate agent\n\n"
+        f"Find the agent's contact details on the listing page and email them this letter:\n\n"
+        f"```\n{letter}\n```\n\n"
+        "Once you receive a response, reply here and I'll help with the next steps."
+    )
+
+
 def handle_approve(
     body: str, labels: list[str], _arg: Optional[str]
 ) -> CommandResult:
     """
     /approve — approves the most recent pending HITL task.
 
-    Finds the first hitl:<kind> label and removes it. If the current state
-    has a natural next step, transitions there. Otherwise stays put.
+    Finds the first hitl:<kind> label and removes it. Routes to specialised
+    handlers for review_shortlist (generates contact templates + advances state)
+    and approve_offer (generates submission package + advances state).
     """
     hitl_labels = [l for l in labels if l.startswith("hitl:")]
     if not hitl_labels:
@@ -81,24 +152,39 @@ def handle_approve(
     kind = hitl_labels[0][len("hitl:"):]
     new_labels = remove_hitl(labels, kind)
 
-    # Approving the shortlist review → schedule viewings for liked properties.
+    # Shortlist approval: schedule viewings (buy) or advance to lease review (rent).
     if kind == "review_shortlist":
-        from workflows_lib.viewings import schedule_viewings
         fm, _ = parse_front_matter(body)
+        workflow_type = fm.get("type", "buy")
         liked_ids: list[str] = fm.get("liked", []) or []
-        all_props: list[dict] = fm.get("shortlist_properties", []) or []
-        liked_props = [p for p in all_props if p.get("external_id") in liked_ids]
-        if not liked_props:
-            return CommandResult(
-                body, new_labels,
-                "No liked properties found. Use `/like <property_id>` on at least one property first."
-            )
-        buyer_name: str = fm.get("requirements", {}).get("applicant_name", "Applicant")
-        new_body, new_labels, hitl_comment = schedule_viewings(body, new_labels, liked_props, buyer_name)
-        return CommandResult(new_body, new_labels, hitl_comment)
 
-    # State advances triggered by /approve for other HITL tasks.
+        # Buy path with known property data: use schedule_viewings for LLM-drafted emails.
+        if workflow_type == "buy" and liked_ids:
+            from workflows_lib.viewings import schedule_viewings
+            all_props: list[dict] = fm.get("shortlist_properties", []) or []
+            liked_props = [p for p in all_props if p.get("external_id") in liked_ids]
+            if liked_props:
+                buyer_name: str = (fm.get("requirements") or {}).get("full_name", "Applicant")
+                new_body, new_labels, hitl_comment = schedule_viewings(body, new_labels, liked_props, buyer_name)
+                return CommandResult(new_body, new_labels, hitl_comment)
+
+        # Rent path, or buy without cached property data: advance state + contact templates.
+        state = current_state(new_labels)
+        if state == State.SHORTLIST_REVIEW:
+            next_state = State.LEASE_REVIEW if workflow_type == "rent" else State.VIEWINGS
+            new_labels = transition(new_labels, next_state)
+        return CommandResult(body, new_labels, _build_contact_reply(fm, workflow_type))
+
+    fm, _ = parse_front_matter(body)
+    workflow_type = fm.get("type", "buy")
     state = current_state(new_labels)
+
+    # Offer approval: advance state and generate submission package.
+    if kind == "approve_offer" and state == State.OFFER_DRAFT:
+        new_labels = transition(new_labels, State.OFFER_SUBMITTED)
+        return CommandResult(body, new_labels, _build_offer_submission_reply(fm))
+
+    # Generic advances for remaining HITL kinds.
     advance_map = {
         State.OFFER_DRAFT: State.OFFER_SUBMITTED,
         State.LEASE_REVIEW: State.CLOSING,
