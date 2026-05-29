@@ -33,13 +33,27 @@ function parseYamlFrontMatter(body) {
   const result = {};
   let currentKey = null;
   for (const line of lines) {
-    const listMatch = line.match(/^  - (.+)$/);
+    // List item: PyYAML block style uses no indent (- item) or 2-space indent (  - item)
+    const listMatch = line.match(/^(?:  )?- (.+)$/);
+    // Top-level key: value
     const kvMatch = line.match(/^(\w[\w_]+):\s*(.*)$/);
     if (listMatch && currentKey) {
-      (result[currentKey] = result[currentKey] || []).push(listMatch[1].replace(/^['"]|['"]$/g, ''));
+      if (!Array.isArray(result[currentKey])) result[currentKey] = [];
+      result[currentKey].push(listMatch[1].replace(/^['"]|['"]$/g, ''));
     } else if (kvMatch) {
       currentKey = kvMatch[1];
-      result[currentKey] = kvMatch[2] === 'null' ? null : kvMatch[2];
+      const raw = kvMatch[2];
+      if (raw === 'null') {
+        result[currentKey] = null;
+      } else if (raw.startsWith('[') && raw.endsWith(']')) {
+        // Inline array: [] or [a, b, c]
+        const inner = raw.slice(1, -1).trim();
+        result[currentKey] = inner
+          ? inner.split(',').map(s => s.trim().replace(/^['"]|['"]$/g, ''))
+          : [];
+      } else {
+        result[currentKey] = raw;
+      }
     }
   }
   return result;

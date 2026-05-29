@@ -111,16 +111,14 @@ function renderReviewShortlist(fm, issueNumber, comments) {
   }
 
   const likedCount = liked.length;
-  const approveBar = likedCount > 0
-    ? `<div class="liked-bar">
-        <strong>${likedCount} property${likedCount > 1 ? 'ies' : ''} liked</strong>
-        — click Approve to get viewing contact templates.
-        <button class="btn btn--approve" style="margin-left:1rem"
-          onclick="window._postCmd('/approve', ${issueNumber})">✓ Approve shortlist</button>
-      </div>`
-    : `<div class="liked-bar liked-bar--hint">
-        Like at least one property above, then click <strong>Approve shortlist</strong>.
-      </div>`;
+  const approveBar = `<div class="liked-bar${likedCount === 0 ? ' liked-bar--hint' : ''}">
+    ${likedCount > 0
+      ? `<strong>${likedCount} propert${likedCount > 1 ? 'ies' : 'y'} liked</strong> — when ready:`
+      : `Like properties above, or approve now to proceed with all of them.`
+    }
+    <button class="btn btn--approve" style="margin-left:1rem"
+      onclick="window._postCmd('/approve', ${issueNumber})">✓ Approve shortlist</button>
+  </div>`;
 
   return makeCard('Review your shortlist', `
     <p>Like the properties you want to pursue — then approve the shortlist to receive viewing request templates.</p>
