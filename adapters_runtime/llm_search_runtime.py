@@ -29,6 +29,8 @@ _SITE_DOMAINS: dict[str, str] = {
     "zoopla": "zoopla.co.uk",
     "spareroom": "spareroom.co.uk",
     "openrent": "openrent.co.uk",
+    "onthemarket": "onthemarket.com",
+    "gumtree_uk": "gumtree.com",
     "craigslist": "craigslist.org",
 }
 

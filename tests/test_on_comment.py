@@ -87,6 +87,32 @@ def test_approve_with_no_hitl_returns_message():
     assert "No pending task" in result.reply
 
 
+def test_approve_shortlist_buy_transitions_to_viewings():
+    labels = ["flow:buy", "state:shortlist_review", "hitl:review_shortlist"]
+    result = handle_approve(BASE_BODY, labels, None)
+    assert current_state(result.new_labels) == State.VIEWINGS
+
+
+def test_approve_shortlist_rent_transitions_to_lease_review():
+    rent_body = BASE_BODY.replace("type: buy", "type: rent")
+    labels = ["flow:rent", "state:shortlist_review", "hitl:review_shortlist"]
+    result = handle_approve(rent_body, labels, None)
+    assert current_state(result.new_labels) == State.LEASE_REVIEW
+
+
+def test_approve_shortlist_generates_contact_reply():
+    body_with_liked = BASE_BODY.replace("liked: []", "liked:\n  - prop-001\n  - prop-002")
+    labels = ["flow:buy", "state:shortlist_review", "hitl:review_shortlist"]
+    result = handle_approve(body_with_liked, labels, None)
+    assert "Viewing request templates" in result.reply or "contact" in result.reply.lower()
+
+
+def test_approve_offer_generates_submission_reply():
+    result = handle_approve(BASE_BODY, OFFER_DRAFT_LABELS, None)
+    # Reply should be the submission package (current_transaction is null in BASE_BODY, generic message)
+    assert "agent" in result.reply.lower() or "Offer approved" in result.reply
+
+
 # ---------------------------------------------------------------------------
 # handle_reject
 # ---------------------------------------------------------------------------

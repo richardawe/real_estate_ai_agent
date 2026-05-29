@@ -1,0 +1,49 @@
+source_id: gumtree_uk
+display_name: Gumtree UK
+type: listings_search
+runtime: http
+robots_check: false
+rate_limit_seconds: 3
+auth: none
+jurisdiction: england
+
+search:
+  base_url: "https://www.gumtree.com"
+  rent_url_template: "https://www.gumtree.com/flats-houses/{location_slug}/page1?sort=date&max_price={rent_max}&min_bedrooms={bedrooms_min}"
+  pagination:
+    offset_param: page
+    offset_step: 1
+    max_pages: 3
+
+extract:
+  card_selector: "article.listing-maxi"
+  fields:
+    title:
+      selector: ".listing-title"
+      attr: text
+    price:
+      selector: ".listing-price strong"
+      attr: text
+      parse: currency_int
+    address:
+      selector: ".listing-location span"
+      attr: text
+    beds:
+      selector: ".listing-attributes-group"
+      attr: text
+      parse: int_first
+      optional: true
+    url:
+      selector: "a.listing-link"
+      attr: href
+      prefix: "https://www.gumtree.com"
+
+error_handling:
+  abort_on_status: [403, 429]
+  abort_action: post_warning_comment
+  warning_message: |
+    Gumtree search was blocked (HTTP {status_code}). Pausing this source.
+
+notes: |
+  UK classifieds covering rental property. City slug e.g. "london", "manchester".
+  Rent-only for England.
