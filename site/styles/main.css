@@ -177,3 +177,119 @@ footer a { color: var(--brand); }
   border-bottom: 1px solid #eee;
 }
 .property-table th { background: var(--bg); font-weight: 600; }
+
+/* Progress stepper */
+.progress-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 1rem 0 1.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 64px;
+}
+
+.progress-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #ccc;
+  background: white;
+  flex-shrink: 0;
+}
+
+.progress-step--done .progress-dot {
+  background: var(--buy);
+  border-color: var(--buy);
+}
+
+.progress-step--active .progress-dot {
+  background: var(--brand);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-light);
+}
+
+.progress-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.progress-step--done .progress-label { color: var(--buy); }
+.progress-step--active .progress-label { color: var(--brand); font-weight: 700; }
+
+.progress-line {
+  flex: 1;
+  height: 2px;
+  background: #ddd;
+  min-width: 16px;
+  margin-bottom: 1rem;
+}
+
+.progress-line--done { background: var(--buy); }
+
+/* Markdown content */
+.md-content h2, .md-content h3, .md-content h4 {
+  margin: 0.75rem 0 0.35rem;
+}
+.md-content h3 { color: var(--brand); font-size: 1rem; }
+.md-content h4 { font-size: 0.95rem; color: var(--text); }
+.md-content p { margin: 0.4rem 0; }
+.md-content pre {
+  background: #f4f4f4;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.md-content pre code { background: none; padding: 0; }
+.md-content hr { border: none; border-top: 1px solid #eee; margin: 0.75rem 0; }
+.md-content ul, .md-content ol { margin: 0.4rem 0 0.4rem 1.5rem; }
+.md-content li { margin-bottom: 0.2rem; }
+.md-content a { color: var(--brand); }
+
+/* Agent badge */
+.agent-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  background: var(--brand-light);
+  color: var(--brand);
+  border-radius: 3px;
+  padding: 0 0.3em;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* Liked properties bar */
+.liked-bar {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f0fff4;
+  border: 1px solid #c6f6d5;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+}
+.liked-bar--hint {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: var(--muted);
+}
+
+/* State badge colours */
+.state-badge--completed { background: #d5f5e3; color: var(--buy); }
+.state-badge--shortlistreview, .state-badge--offersubmitted { background: #fef9c3; color: #92400e; }
+.state-badge--closing { background: #ede9fe; color: #5b21b6; }

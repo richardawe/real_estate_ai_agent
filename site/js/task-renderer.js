@@ -17,6 +17,9 @@ async function postSlashCommand(issueNumber, command) {
   }
 }
 
+// Expose globally for inline onclick handlers
+window._postSlashCommand = postSlashCommand;
+
 function makeCard(title, innerHTML) {
   const card = document.createElement('div');
   card.className = 'hitl-card';
@@ -24,138 +27,177 @@ function makeCard(title, innerHTML) {
   return card;
 }
 
-function approveRejectButtons(issueNumber, approveCmd = '/approve', rejectCmd = '/reject') {
-  const wrap = document.createElement('div');
-  wrap.style.marginTop = '1rem';
-  wrap.style.display = 'flex';
-  wrap.style.gap = '0.75rem';
+function btn(text, cls, cmd, issueNumber) {
+  return `<button class="btn ${cls}" onclick="window._postSlashCommand(${issueNumber}, '${cmd}')">${text}</button>`;
+}
 
-  const approveBtn = document.createElement('button');
-  approveBtn.className = 'btn btn--approve';
-  approveBtn.textContent = '✓ Approve';
-  approveBtn.onclick = () => postSlashCommand(issueNumber, approveCmd);
+// ---------------------------------------------------------------------------
+// Shortlist table parser
+// ---------------------------------------------------------------------------
 
-  const rejectBtn = document.createElement('button');
-  rejectBtn.className = 'btn btn--reject';
-  rejectBtn.textContent = '✗ Reject';
-  rejectBtn.onclick = () => postSlashCommand(issueNumber, rejectCmd);
-
-  wrap.append(approveBtn, rejectBtn);
-  return wrap;
+function parseShortlistFromComments(comments) {
+  for (const c of (comments || [])) {
+    if (!c.body || !c.body.includes('| # | Address |')) continue;
+    const lines = c.body.split('\n').filter(l => l.startsWith('|'));
+    const dataLines = lines.filter(l => !l.match(/^[|\s:-]+$/)).slice(1); // skip header
+    return dataLines.map(line => {
+      const cells = line.split('|').slice(1, -1).map(c => c.trim());
+      // columns: #, Address, Price, Beds, Score, Link, ID
+      const linkMatch = cells[5] && cells[5].match(/\[([^\]]+)\]\(([^)]+)\)/);
+      const idMatch = cells[6] && cells[6].match(/`([^`]+)`/);
+      return {
+        num: cells[0] || '',
+        address: cells[1] || '',
+        price: cells[2] || '',
+        beds: cells[3] || '?',
+        url: linkMatch ? linkMatch[2] : null,
+        id: idMatch ? idMatch[1] : (cells[6] || ''),
+      };
+    }).filter(p => p.id);
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------
 // Renderers
 // ---------------------------------------------------------------------------
 
-function renderReviewShortlist(fm, issueNumber) {
-  const shortlist = fm.shortlist || [];
-  if (!Array.isArray(shortlist) || !shortlist.length) {
-    return makeCard(
-      'Review shortlist',
-      '<p>The shortlist is being prepared. Refresh in a few minutes.</p>'
-    );
-  }
+function renderReviewShortlist(fm, issueNumber, comments) {
+  const properties = parseShortlistFromComments(comments);
+  const liked = Array.isArray(fm.liked) ? fm.liked : [];
 
-  const rows = shortlist.map(id => `
-    <tr>
-      <td><code>${id}</code></td>
-      <td>
-        <button class="btn btn--approve" style="padding:0.3rem 0.75rem;font-size:0.8rem"
-          onclick="postCmd('/like ${id}', ${issueNumber})">Like</button>
-        <button class="btn btn--reject" style="padding:0.3rem 0.75rem;font-size:0.8rem;margin-left:0.4rem"
-          onclick="postCmd('/skip ${id}', ${issueNumber})">Skip</button>
-      </td>
-    </tr>
-  `).join('');
+  window._postCmd = (cmd, num) => postSlashCommand(num, cmd);
 
-  const card = makeCard('Review your shortlist', `
-    <p>React to each property below, then the agent will arrange viewings.</p>
-    <table class="property-table">
+  let tableHtml;
+  if (properties.length) {
+    const rows = properties.map(p => {
+      const isLiked = liked.includes(p.id);
+      const linkHtml = p.url
+        ? `<a href="${p.url}" target="_blank" rel="noopener" style="color:var(--brand)">View →</a>`
+        : '—';
+      const likeBtn = `<button class="btn btn--approve" style="padding:.25rem .6rem;font-size:.8rem"
+        onclick="window._postCmd('/like ${p.id}', ${issueNumber})">${isLiked ? '♥ Liked' : 'Like'}</button>`;
+      const skipBtn = `<button class="btn btn--reject" style="padding:.25rem .6rem;font-size:.8rem;margin-left:.3rem"
+        onclick="window._postCmd('/skip ${p.id}', ${issueNumber})">Skip</button>`;
+      return `<tr${isLiked ? ' style="background:#f0fff4"' : ''}>
+        <td>${p.address}</td><td>${p.price}</td><td>${p.beds}</td>
+        <td>${linkHtml}</td><td style="white-space:nowrap">${likeBtn}${skipBtn}</td>
+      </tr>`;
+    }).join('');
+    tableHtml = `<table class="property-table">
+      <thead><tr><th>Address</th><th>Price</th><th>Beds</th><th>Link</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } else if (Array.isArray(fm.shortlist) && fm.shortlist.length) {
+    // Fallback to IDs only
+    const rows = fm.shortlist.map(id => {
+      const isLiked = liked.includes(id);
+      return `<tr${isLiked ? ' style="background:#f0fff4"' : ''}>
+        <td><code>${id}</code></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn--approve" style="padding:.25rem .6rem;font-size:.8rem"
+            onclick="window._postCmd('/like ${id}', ${issueNumber})">${isLiked ? '♥ Liked' : 'Like'}</button>
+          <button class="btn btn--reject" style="padding:.25rem .6rem;font-size:.8rem;margin-left:.3rem"
+            onclick="window._postCmd('/skip ${id}', ${issueNumber})">Skip</button>
+        </td>
+      </tr>`;
+    }).join('');
+    tableHtml = `<table class="property-table">
       <thead><tr><th>Property ID</th><th>Action</th></tr></thead>
       <tbody>${rows}</tbody>
-    </table>
-  `);
+    </table>`;
+  } else {
+    return makeCard('Review shortlist', '<p>The shortlist is being prepared — check back in a few minutes.</p>');
+  }
 
-  // Expose helper for inline onclick.
-  window.postCmd = (cmd, num) => postSlashCommand(num, cmd);
-  return card;
+  const likedCount = liked.length;
+  const approveBar = likedCount > 0
+    ? `<div class="liked-bar">
+        <strong>${likedCount} property${likedCount > 1 ? 'ies' : ''} liked</strong>
+        — click Approve to get viewing contact templates.
+        <button class="btn btn--approve" style="margin-left:1rem"
+          onclick="window._postCmd('/approve', ${issueNumber})">✓ Approve shortlist</button>
+      </div>`
+    : `<div class="liked-bar liked-bar--hint">
+        Like at least one property above, then click <strong>Approve shortlist</strong>.
+      </div>`;
+
+  return makeCard('Review your shortlist', `
+    <p>Like the properties you want to pursue — then approve the shortlist to receive viewing request templates.</p>
+    ${tableHtml}
+    ${approveBar}
+  `);
 }
 
 function renderApproveOffer(fm, issueNumber) {
+  const tx = fm.current_transaction;
+  const detailHtml = tx && typeof tx === 'object'
+    ? `<ul style="margin:.5rem 0 .5rem 1.25rem">
+        ${tx.property_address ? `<li><strong>Property:</strong> ${tx.property_address}</li>` : ''}
+        ${tx.amount ? `<li><strong>Offer price:</strong> £${Number(tx.amount).toLocaleString()}</li>` : ''}
+      </ul>`
+    : '';
   const card = makeCard('Approve offer draft', `
-    <p>
-      An offer has been drafted for your review. Check the latest agent comment
-      above for the full draft text.
-    </p>
-    <p>To request changes before approving, reply with:
-      <code>/note &lt;what to change&gt;</code>
-    </p>
+    ${detailHtml}
+    <p>An offer draft is ready in the latest agent comment above. Review it carefully.</p>
+    <p>To request changes: reply <code>/note &lt;what to change&gt;</code> and I'll redraft.</p>
+    <div style="margin-top:1rem;display:flex;gap:.75rem">
+      ${btn('✓ Approve & get submission package', 'btn--approve', '/approve', issueNumber)}
+      ${btn('✗ Reject', 'btn--reject', '/reject', issueNumber)}
+    </div>
   `);
-  card.appendChild(approveRejectButtons(issueNumber));
   return card;
 }
 
 function renderApproveViewing(fm, issueNumber) {
   const card = makeCard('Approve viewing request', `
-    <p>
-      Viewing requests have been drafted. Check the latest agent comment for
-      the suggested times. Reply <code>/note &lt;your availability&gt;</code>
-      to adjust times before approving.
-    </p>
+    <p>Viewing request drafts are ready in the latest agent comment. Check the suggested times.</p>
+    <p>To adjust availability: reply <code>/note &lt;your availability&gt;</code> before approving.</p>
+    <div style="margin-top:1rem;display:flex;gap:.75rem">
+      ${btn('✓ Approve', 'btn--approve', '/approve', issueNumber)}
+      ${btn('✗ Reject', 'btn--reject', '/reject', issueNumber)}
+    </div>
   `);
-  card.appendChild(approveRejectButtons(issueNumber));
   return card;
 }
 
 function renderCounterDecision(fm, issueNumber) {
   const card = makeCard('Respond to counter-offer', `
     <p>The seller has countered. Choose your response:</p>
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem">
-      <button class="btn btn--approve"
-        onclick="postSlashCommand(${issueNumber}, '/approve')">Accept counter</button>
-      <button class="btn btn--reject"
-        onclick="postSlashCommand(${issueNumber}, '/reject')">Reject</button>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem">
+      ${btn('Accept counter', 'btn--approve', '/approve', issueNumber)}
+      ${btn('Reject', 'btn--reject', '/reject', issueNumber)}
     </div>
     <div style="margin-top:1rem">
-      <label style="font-weight:600;display:block;margin-bottom:0.4rem">
-        Or submit your own counter:
-      </label>
-      <input id="counter-input" type="number" placeholder="Amount"
-        style="padding:0.5rem;border:1px solid #ccc;border-radius:6px;width:180px" />
-      <button class="btn btn--counter" style="margin-left:0.5rem"
-        onclick="postSlashCommand(${issueNumber}, '/counter ' + document.getElementById('counter-input').value)">
+      <label style="font-weight:600;display:block;margin-bottom:.4rem">Or submit your own counter:</label>
+      <input id="counter-input" type="number" placeholder="Amount (e.g. 395000)"
+        style="padding:.5rem;border:1px solid #ccc;border-radius:6px;width:200px" />
+      <button class="btn btn--counter" style="margin-left:.5rem"
+        onclick="window._postSlashCommand(${issueNumber}, '/counter ' + document.getElementById('counter-input').value)">
         Counter →
       </button>
     </div>
   `);
-  window.postSlashCommand = postSlashCommand;
   return card;
 }
 
 function renderLeaseReview(fm, issueNumber) {
   const card = makeCard('Review lease', `
-    <p>
-      A lease draft is ready for your review. Check the latest agent comment
-      for the redline diff. Have your solicitor review before approving.
-    </p>
-    <p>
-      <strong>Warning:</strong> approving will move to the e-sign step.
-      Do not approve until you are satisfied with all terms.
-    </p>
+    <p>A lease summary is ready in the latest agent comment above. Read it carefully and have your solicitor review the full document before approving.</p>
+    <p><strong>Warning:</strong> approving will move to the closing step. Do not approve until you are satisfied with all terms.</p>
+    <div style="margin-top:1rem;display:flex;gap:.75rem">
+      ${btn('✓ Approve lease', 'btn--approve', '/approve', issueNumber)}
+      ${btn('✗ Reject', 'btn--reject', '/reject', issueNumber)}
+    </div>
   `);
-  card.appendChild(approveRejectButtons(issueNumber));
   return card;
 }
 
 function renderPaymentConfirmation(fm, issueNumber) {
   return makeCard('Payment confirmation', `
-    <p>
-      Upload a screenshot of your payment receipt as an issue attachment,
-      then comment <code>/approve</code> to confirm.
-    </p>
+    <p>Upload a screenshot of your payment receipt as an issue attachment, then confirm below.</p>
     <button class="btn btn--approve" style="margin-top:1rem"
-      onclick="postSlashCommand(${issueNumber}, '/approve')">
+      onclick="window._postSlashCommand(${issueNumber}, '/approve')">
       Confirm payment →
     </button>
   `);
@@ -174,7 +216,7 @@ const RENDERERS = {
   payment_confirmation: renderPaymentConfirmation,
 };
 
-export function renderHitlTask(kind, fm, issueNumber) {
+export function renderHitlTask(kind, fm, issueNumber, comments = []) {
   const renderer = RENDERERS[kind];
-  return renderer ? renderer(fm, issueNumber) : null;
+  return renderer ? renderer(fm, issueNumber, comments) : null;
 }
