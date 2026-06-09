@@ -1,13 +1,10 @@
 """
-LLM-powered property discovery using SerpAPI + Serper.dev + LLM extraction.
+LLM-powered property discovery using a self-hosted search API + LLM extraction.
 
-Supports two Google search providers with automatic fallback:
-  1. SerpAPI   (serpapi.com)   — set SERPAPI_API_KEY   (100 searches/month free)
-  2. Serper.dev (serper.dev)   — set SERPER_API_KEY    (2,500 searches/month free)
-
-Configure one or both. If both keys are present, SerpAPI is tried first; on
-quota exhaustion or auth failure it falls back to Serper.dev automatically,
-giving up to 2,600 free searches/month combined.
+Search provider:
+  Self-hosted — set SEARCH_API_URL and SEARCH_API_KEY
+  SEARCH_API_URL: public HTTPS URL of your search API (e.g. Cloudflare tunnel)
+  SEARCH_API_KEY: the key set in your search-api .env file
 """
 
 from __future__ import annotations
@@ -21,8 +18,7 @@ from pydantic import BaseModel
 
 from engine.extractor import ExtractionError, extract
 
-_SERPAPI_URL = "https://serpapi.com/search.json"
-_SERPER_URL = "https://google.serper.dev/search"
+_SELF_HOSTED_URL = os.getenv("SEARCH_API_URL", "http://localhost:8000") + "/search"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -34,7 +30,7 @@ _SITE_DOMAINS: dict[str, str] = {
     "craigslist": "craigslist.org",
 }
 
-_SNIPPET_CHARS = 300  # truncate each snippet to keep prompt tokens low
+_SNIPPET_CHARS = 300
 
 
 class _PropertyListing(BaseModel):
@@ -82,67 +78,29 @@ def _build_query(
     return " ".join(parts)
 
 
-def _search_serpapi(query: str, max_results: int, key: str) -> list[dict[str, str]]:
-    resp = requests.get(
-        _SERPAPI_URL,
-        params={"q": query, "num": min(max_results, 20), "api_key": key},
-        timeout=15,
-    )
-    if resp.status_code in (401, 403, 429):
-        raise RuntimeError(f"SerpAPI HTTP {resp.status_code}")
-    resp.raise_for_status()
-    return [
-        {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
-        for r in resp.json().get("organic_results", [])
-    ]
+def _search(query: str, max_results: int) -> list[dict[str, str]]:
+    key = os.environ.get("SEARCH_API_KEY", "")
+    if not key:
+        raise EnvironmentError(
+            "SEARCH_API_KEY is not set. "
+            "Add it to your .env file or GitHub Actions secrets."
+        )
 
-
-def _search_serper(query: str, max_results: int, key: str) -> list[dict[str, str]]:
     resp = requests.post(
-        _SERPER_URL,
-        headers={"X-API-KEY": key, "Content-Type": "application/json"},
+        _SELF_HOSTED_URL,
+        headers={"X-API-Key": key, "Content-Type": "application/json"},
         json={"q": query, "num": min(max_results, 20)},
         timeout=15,
     )
-    if resp.status_code in (401, 403, 429):
-        raise RuntimeError(f"Serper.dev HTTP {resp.status_code}")
+    if resp.status_code in (401, 403):
+        raise RuntimeError(f"Search API rejected the key (HTTP {resp.status_code}). Check SEARCH_API_KEY.")
+    if resp.status_code == 429:
+        raise RuntimeError("Search API rate limit hit.")
     resp.raise_for_status()
     return [
         {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
         for r in resp.json().get("organic", [])
     ]
-
-
-def _search(query: str, max_results: int) -> list[dict[str, str]]:
-    """
-    Try each configured search provider in order, falling back automatically.
-    Raises EnvironmentError if no provider keys are configured.
-    Raises RuntimeError if all configured providers fail.
-    """
-    providers = [
-        ("SerpAPI",    "SERPAPI_API_KEY", _search_serpapi),
-        ("Serper.dev", "SERPER_API_KEY",  _search_serper),
-    ]
-
-    configured = [(name, os.environ[env], fn) for name, env, fn in providers if os.environ.get(env)]
-
-    if not configured:
-        raise EnvironmentError(
-            "No search provider configured. "
-            "Set SERPAPI_API_KEY (serpapi.com) or SERPER_API_KEY (serper.dev) — or both."
-        )
-
-    last_error: Exception | None = None
-    for name, key, fn in configured:
-        try:
-            return fn(query, max_results, key)
-        except Exception as exc:
-            last_error = exc
-            continue
-
-    raise RuntimeError(
-        f"All search providers failed. Last error: {last_error}"
-    )
 
 
 def _url_id(source_id: str, url: str) -> str:
@@ -158,7 +116,7 @@ def run_llm_search(
     max_results: int = 20,
 ) -> list[dict[str, Any]]:
     """
-    Search for property listings via Google (SerpAPI/Serper.dev) + LLM extraction.
+    Search for property listings via the self-hosted Search API + LLM extraction.
     Returns property dicts compatible with the eligibility and scoring engine.
     Returns an empty list on extraction failure.
     """
@@ -201,8 +159,6 @@ def run_llm_search(
 
     props: list[dict[str, Any]] = []
     for p in result.properties:
-        # Skip listings the LLM could not extract a price for — they cannot
-        # pass hard filters or be scored meaningfully.
         if p.price is None and p.rent_monthly is None:
             continue
         d = p.model_dump()
