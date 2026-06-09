@@ -5,6 +5,13 @@ Search provider:
   Self-hosted — set SEARCH_API_URL and SEARCH_API_KEY
   SEARCH_API_URL: public HTTPS URL of your search API (e.g. Cloudflare tunnel)
   SEARCH_API_KEY: the key set in your search-api .env file
+Supports three Google search providers with automatic fallback:
+  1. Self-hosted (localhost) — set SEARCH_API_URL and SEARCH_API_KEY  (free, unlimited)
+  2. SerpAPI   (serpapi.com) — set SERPAPI_API_KEY                    (100 searches/month free)
+  3. Serper.dev (serper.dev) — set SERPER_API_KEY                     (2,500 searches/month free)
+
+Self-hosted is tried first and is free. SerpAPI and Serper.dev are kept as fallbacks
+in case the local server is unreachable.
 """
 
 from __future__ import annotations
@@ -19,6 +26,8 @@ from pydantic import BaseModel
 from engine.extractor import ExtractionError, extract
 
 _SELF_HOSTED_URL = os.getenv("SEARCH_API_URL", "http://localhost:8000") + "/search"
+_SERPAPI_URL = "https://serpapi.com/search.json"
+_SERPER_URL = "https://google.serper.dev/search"
 
 _SITE_DOMAINS: dict[str, str] = {
     "rightmove": "rightmove.co.uk",
@@ -85,6 +94,36 @@ def _search(query: str, max_results: int) -> list[dict[str, str]]:
             "SEARCH_API_KEY is not set. "
             "Add it to your .env file or GitHub Actions secrets."
         )
+def _search_self_hosted(query: str, max_results: int, key: str) -> list[dict[str, str]]:
+    resp = requests.post(
+        _SELF_HOSTED_URL,
+        headers={"X-API-Key": key, "Content-Type": "application/json"},
+        json={"q": query, "num": min(max_results, 20)},
+        timeout=15,
+    )
+    if resp.status_code in (401, 403, 429):
+        raise RuntimeError(f"Self-hosted search HTTP {resp.status_code}")
+    resp.raise_for_status()
+    return [
+        {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
+        for r in resp.json().get("organic", [])
+    ]
+
+
+def _search_serpapi(query: str, max_results: int, key: str) -> list[dict[str, str]]:
+    resp = requests.get(
+        _SERPAPI_URL,
+        params={"q": query, "num": min(max_results, 20), "api_key": key},
+        timeout=15,
+    )
+    if resp.status_code in (401, 403, 429):
+        raise RuntimeError(f"SerpAPI HTTP {resp.status_code}")
+    resp.raise_for_status()
+    return [
+        {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
+        for r in resp.json().get("organic_results", [])
+    ]
+
 
     resp = requests.post(
         _SELF_HOSTED_URL,
@@ -101,6 +140,40 @@ def _search(query: str, max_results: int) -> list[dict[str, str]]:
         {"title": r.get("title", ""), "url": r.get("link", ""), "body": r.get("snippet", "")}
         for r in resp.json().get("organic", [])
     ]
+
+
+def _search(query: str, max_results: int) -> list[dict[str, str]]:
+    """
+    Try each configured search provider in order, falling back automatically.
+    Raises EnvironmentError if no provider keys are configured.
+    Raises RuntimeError if all configured providers fail.
+    """
+    providers = [
+        ("Self-hosted", "SEARCH_API_KEY",  _search_self_hosted),
+        ("SerpAPI",     "SERPAPI_API_KEY", _search_serpapi),
+        ("Serper.dev",  "SERPER_API_KEY",  _search_serper),
+    ]
+
+    configured = [(name, os.environ[env], fn) for name, env, fn in providers if os.environ.get(env)]
+
+    if not configured:
+        raise EnvironmentError(
+            "No search provider configured. "
+            "Set SEARCH_API_KEY (self-hosted), SERPAPI_API_KEY (serpapi.com), "
+            "or SERPER_API_KEY (serper.dev)."
+        )
+
+    last_error: Exception | None = None
+    for name, key, fn in configured:
+        try:
+            return fn(query, max_results, key)
+        except Exception as exc:
+            last_error = exc
+            continue
+
+    raise RuntimeError(
+        f"All search providers failed. Last error: {last_error}"
+    )
 
 
 def _url_id(source_id: str, url: str) -> str:
